@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static const COLORREF pink=RGB(245,222,240), canvas=RGB(248,231,245), ink=RGB(62,48,61), muted=RGB(142,124,141), line=RGB(236,220,233), white=RGB(255,253,255);
+static const COLORREF pink=RGB(245,222,240), canvas=RGB(248,231,245), ink=RGB(62,48,61), muted=RGB(142,124,141), line=RGB(236,220,233), white=RGB(255,253,255), rose=RGB(221,155,202);
 static int imax(int a,int b){return a>b?a:b;}
 static void fill(HDC d,RECT r,COLORREF c){HBRUSH b=CreateSolidBrush(c);FillRect(d,&r,b);DeleteObject(b);}
 static void frame(HDC d,RECT r,COLORREF c){HPEN p=CreatePen(PS_SOLID,1,c);HGDIOBJ old=SelectObject(d,p);HGDIOBJ brush=SelectObject(d,GetStockObject(NULL_BRUSH));Rectangle(d,r.left,r.top,r.right,r.bottom);SelectObject(d,brush);SelectObject(d,old);DeleteObject(p);}

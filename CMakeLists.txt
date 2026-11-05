@@ -21,7 +21,8 @@ add_executable(Dango WIN32
   src/ui.c
   src/media_ffmpeg.c
 )
-target_include_directories(Dango PRIVATE include ${FFMPEG_INCLUDE_DIR})
+target_include_directories(Dango PRIVATE include)
+target_include_directories(Dango SYSTEM PRIVATE ${FFMPEG_INCLUDE_DIR})
 target_link_libraries(Dango PRIVATE ${FFMPEG_LIBRARIES} comdlg32 dwmapi shcore)
 target_compile_definitions(Dango PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 if(MSVC)
