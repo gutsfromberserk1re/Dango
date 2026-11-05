@@ -18,5 +18,5 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE previous,PWSTR command,int show
      The documented attribute/value pair is 38 / DWMSBT_TRANSIENTWINDOW (3).
      Older Windows builds simply reject the attribute; the editor remains opaque. */
   const DWORD backdrop_attribute=38;const int backdrop_value=3;
-  DwmSetWindowAttribute(hwnd,(DWMWINDOWATTRIBUTE)backdrop_attribute,&backdrop_value,sizeof(backdrop_value));
+  DwmSetWindowAttribute(hwnd,backdrop_attribute,&backdrop_value,sizeof(backdrop_value));
   ShowWindow(hwnd,show);UpdateWindow(hwnd);MSG msg;while(GetMessageW(&msg,NULL,0,0)>0){TranslateMessage(&msg);DispatchMessageW(&msg);}return (int)msg.wParam;}
