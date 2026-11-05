@@ -1,76 +1,32 @@
 name: Windows build
-
 on:
   push:
   pull_request:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
-  group: dango-windows-${{ github.ref }}
+  group: dango-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   build:
-    name: Build Dango (Windows x64)
     runs-on: windows-2022
-    env:
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-binary-cache
-      VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-downloads
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Restore FFmpeg and vcpkg caches
-        uses: actions/cache@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          path: |
-            ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-            ${{ env.VCPKG_DOWNLOADS }}
-            C:\vcpkg\installed
-          key: vcpkg-${{ runner.os }}-x64-windows-${{ hashFiles('CMakeLists.txt', '.github/workflows/windows-build.yml') }}
-          restore-keys: |
-            vcpkg-${{ runner.os }}-x64-windows-
-
-      - name: Create vcpkg cache directories
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
-          New-Item -ItemType Directory -Force -Path $env:VCPKG_DOWNLOADS | Out-Null
-
-      - name: Install FFmpeg development libraries
-        shell: pwsh
-        run: |
-          $vcpkg = Join-Path $env:VCPKG_INSTALLATION_ROOT 'vcpkg.exe'
-          if (-not (Test-Path $vcpkg)) { throw "vcpkg was not found at $vcpkg" }
-          & $vcpkg install ffmpeg:x64-windows
-          if ($LASTEXITCODE -ne 0) { throw "vcpkg failed to install FFmpeg ($LASTEXITCODE)" }
-
-      - name: Configure
-        shell: pwsh
-        run: |
-          $prefix = Join-Path $env:VCPKG_INSTALLATION_ROOT 'installed/x64-windows'
-          cmake -S . -B build -A x64 "-DCMAKE_PREFIX_PATH=$prefix"
-          if ($LASTEXITCODE -ne 0) { throw "CMake configure failed ($LASTEXITCODE)" }
-
-      - name: Build
-        shell: pwsh
-        run: |
-          cmake --build build --config Release --parallel
-          if ($LASTEXITCODE -ne 0) { throw "Dango build failed ($LASTEXITCODE)" }
-
-      - name: Bundle FFmpeg runtime libraries
-        shell: pwsh
-        run: |
-          $runtime = Join-Path $env:VCPKG_INSTALLATION_ROOT 'installed/x64-windows/bin'
-          Copy-Item (Join-Path $runtime '*.dll') 'build/Release/' -Force
-
-      - name: Upload Windows build
-        uses: actions/upload-artifact@v4
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - name: Install frontend tooling
+        run: npm install
+      - name: Build Tauri app
+        run: npm run tauri -- build --no-bundle
+      - uses: actions/upload-artifact@v4
         with:
           name: Dango-windows-x64
-          path: build/Release/
+          path: src-tauri/target/release/dango.exe
           if-no-files-found: error
           retention-days: 14

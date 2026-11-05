@@ -1,20 +1,21 @@
 # Dango
 
-Dango is a native Windows desktop video editor prototype written in C17. The app UI uses Win32/GDI, Windows system backdrop support, and FFmpeg's C libraries for media probing.
+Dango is a Tauri v2 desktop video-editor prototype. Rust owns native dialogs/window operations and probes media with FFprobe; the editor UI runs in Tauri's webview.
 
-## Build
+## Run on Windows
 
-Requirements: Windows 11 SDK, CMake 3.24+, MSVC Build Tools, and FFmpeg development headers plus `avformat`, `avcodec`, `avutil`, `avfilter`, `swscale`, and `swresample` libraries.
+Install Rust, Node.js 22+, the Visual Studio C++ Build Tools workload, CMake, and WebView2. Install FFmpeg and make `ffprobe` available on `PATH` for imported duration metadata. Run:
 
 ```powershell
-cmake -S . -B build -A x64 -DFFMPEG_INCLUDE_DIR="C:/ffmpeg/include" `
-  -DFFMPEG_avformat_LIBRARY="C:/ffmpeg/lib/avformat.lib" `
-  -DFFMPEG_avcodec_LIBRARY="C:/ffmpeg/lib/avcodec.lib" `
-  -DFFMPEG_avutil_LIBRARY="C:/ffmpeg/lib/avutil.lib" `
-  -DFFMPEG_avfilter_LIBRARY="C:/ffmpeg/lib/avfilter.lib" `
-  -DFFMPEG_swscale_LIBRARY="C:/ffmpeg/lib/swscale.lib" `
-  -DFFMPEG_swresample_LIBRARY="C:/ffmpeg/lib/swresample.lib"
-cmake --build build --config Release
+npm install
+npm run dev
 ```
 
-All authored application code is C. Project model, FFmpeg integration, window lifecycle, and UI drawing are separated into distinct source files. The initial editor shell includes resizable panes, a magnetic multi-track model, clip dragging, selectable tools, and keyframe markers. Media decoding, composited preview, project serialization, and final export are not yet implemented.
+## Editor prototype
+
+- Video tracks V1 and V2 and audio track A1 start visible. Dragging into the outermost lane reveals V3 or A2/A3. Magnetic placement is always on.
+- Effects are overlay blocks attached to video clips. Fade starts as a black overlay and can be switched between fade-in and fade-out; duration and intensity controls have individual reset buttons.
+- Preview quality changes playback rate; imported video can preview through the Tauri asset protocol.
+- The pane dividers show column/row resize cursors and can be dragged.
+
+Frame-accurate FFmpeg decoding/export, native project persistence, and full implementations for every visual effect remain future work.
