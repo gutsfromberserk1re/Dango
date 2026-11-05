@@ -17,8 +17,8 @@ jobs:
     name: Build Dango (Windows x64)
     runs-on: windows-2022
     env:
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\.vcpkg-binary-cache
-      VCPKG_DOWNLOADS: ${{ github.workspace }}\.vcpkg-downloads
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-binary-cache
+      VCPKG_DOWNLOADS: ${{ github.workspace }}/.vcpkg-downloads
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -33,6 +33,12 @@ jobs:
           key: vcpkg-${{ runner.os }}-x64-windows-${{ hashFiles('CMakeLists.txt', '.github/workflows/windows-build.yml') }}
           restore-keys: |
             vcpkg-${{ runner.os }}-x64-windows-
+
+      - name: Create vcpkg cache directories
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+          New-Item -ItemType Directory -Force -Path $env:VCPKG_DOWNLOADS | Out-Null
 
       - name: Install FFmpeg development libraries
         shell: pwsh
