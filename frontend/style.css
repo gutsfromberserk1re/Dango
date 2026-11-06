@@ -282,3 +282,21 @@ body { background:radial-gradient(ellipse at 45% -15%,rgba(250,246,239,.82) 0,tr
 @media (prefers-reduced-motion:reduce) {
   *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
 }
+
+/* Keep film frames a consistent size while the clip edge is trimmed or stretched. */
+.filmstrip.has-thumbnail { background-size:112px 100%; background-repeat:repeat-x; }
+.filmstrip.image-filmstrip { background-size:112px 100%; background-repeat:repeat-x; }
+.keyframe-add-icon { width:34px; height:30px; padding:0; font-size:19px; line-height:1; }
+.reset { width:22px; height:22px; display:inline-grid; place-items:center; border:1px solid rgba(128,103,122,.14); border-radius:6px; font-size:15px; line-height:1; }
+
+.timeline-footer { display:none; }
+
+.export-button { margin-left:auto; margin-right:12px; padding:6px 13px; border:1px solid rgba(169,111,147,.22); border-radius:8px; background:#f5e9f0; color:#76546c; font-size:11px; cursor:pointer; }
+.export-modal { width:min(420px,calc(100vw - 32px)); padding:18px; }
+.export-modal p { color:var(--muted); font-size:12px; }
+.export-field { display:grid; gap:7px; margin:18px 0; color:#796777; font-size:11px; }
+.export-field select { padding:8px; border:1px solid var(--line); border-radius:8px; background:#fffdf8; color:var(--ink); }
+.export-actions { display:flex; justify-content:flex-end; gap:8px; }
+.export-actions button { padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#fffaf7; cursor:pointer; }
+.export-actions .export-primary { background:#ead8e6; color:#62475c; }
+.export-actions button:disabled { opacity:.55; cursor:wait; }
