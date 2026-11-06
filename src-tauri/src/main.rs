@@ -185,12 +185,13 @@ fn export_video(app: tauri::AppHandle, contents: String, quality: String) -> Res
         if c["kind"]=="image" { cmd.args(["-loop","1","-t"]); cmd.arg(d.to_string()); }
         else { let offset=c["sourceOffset"].as_f64().unwrap_or(0.0); if offset>0.0 {cmd.arg("-ss").arg(offset.to_string());} cmd.arg("-t").arg(d.to_string()); }
         cmd.arg("-i").arg(source);
-        if c["kind"]=="video" && c["hasAudio"].as_bool().unwrap_or(false) { audio_indices.push((i,c["start"].as_f64().unwrap_or(0.0),d,c["sourceOffset"].as_f64().unwrap_or(0.0))); }
+        if c["kind"]=="video" && c["hasAudio"].as_bool().unwrap_or(false) { audio_indices.push((i,c["start"].as_f64().unwrap_or(0.0),d)); }
     }
+    for (n,c) in clips.iter().filter(|c| c["kind"]=="audio" && c["path"].as_str().is_some()).enumerate() { let idx=visual.len()+n; let offset=c["sourceOffset"].as_f64().unwrap_or(0.0); let d=c["duration"].as_f64().unwrap_or(1.0).max(0.05); if offset>0.0 { cmd.arg("-ss").arg(offset.to_string()); } cmd.arg("-t").arg(d.to_string()).arg("-i").arg(c["path"].as_str().unwrap()); audio_indices.push((idx,c["start"].as_f64().unwrap_or(0.0),d)); }
     let mut graph=format!("color=c=black:s=1920x1080:r=30:d={duration}[base0]"); let mut last="base0".to_string();
     for (i,c) in visual.iter().enumerate() { let start=c["start"].as_f64().unwrap_or(0.0); let end=start+c["duration"].as_f64().unwrap_or(1.0); let next=format!("base{}",i+1); graph.push_str(&format!(";[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,format=rgba,setsar=1,setpts=PTS-STARTPTS+{start}/TB[v{i}];[{last}][v{i}]overlay=(W-w)/2:(H-h)/2:enable='between(t,{start},{end})'[{next}]")); last=next; }
     let mut audio_labels=Vec::new();
-    for (i,start,d,offset) in audio_indices { let label=format!("a{i}"); graph.push_str(&format!(";[{i}:a]atrim=duration={d},asetpts=PTS-STARTPTS,adelay={}:all=1[{label}]",(start*1000.0) as u64)); audio_labels.push(format!("[{label}]")); }
+    for (i,start,d) in audio_indices { let label=format!("a{i}"); graph.push_str(&format!(";[{i}:a]atrim=duration={d},asetpts=PTS-STARTPTS,adelay={}:all=1[{label}]",(start*1000.0) as u64)); audio_labels.push(format!("[{label}]")); }
     graph.push_str(&format!(";[{last}]format=yuv420p[vout]"));
     if !audio_labels.is_empty() { graph.push_str(&format!(";{}amix=inputs={}:duration=longest[aout]",audio_labels.concat(),audio_labels.len())); }
     cmd.arg("-filter_complex").arg(&graph).args(["-map","[vout]"]); if !audio_labels.is_empty(){cmd.args(["-map","[aout]"]);}else{cmd.arg("-an");}
