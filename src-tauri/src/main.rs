@@ -10,6 +10,7 @@ struct MediaInfo {
     path: String,
     name: String,
     duration: f64,
+    has_audio: bool,
 }
 
 #[derive(Serialize)]
@@ -31,23 +32,31 @@ fn import_media(app: tauri::AppHandle) -> Result<Option<MediaInfo>, String> {
 
     let path: PathBuf = path.into_path().map_err(|error| error.to_string())?;
     let path_string = path.to_string_lossy().to_string();
-    let output = Command::new("ffprobe")
+    let probe = Command::new("ffprobe")
         .args([
             "-v",
             "error",
             "-show_entries",
-            "format=duration",
+            "format=duration:stream=codec_type",
             "-of",
             "default=noprint_wrappers=1:nokey=1",
         ])
         .arg(&path)
         .output();
-    let duration = match output {
-        Ok(result) if result.status.success() => String::from_utf8_lossy(&result.stdout)
-            .trim()
-            .parse::<f64>()
-            .unwrap_or(8.0),
-        _ => 8.0,
+    let (duration, has_audio) = match probe {
+        Ok(result) if result.status.success() => {
+            let output = String::from_utf8_lossy(&result.stdout);
+            let mut duration = 8.0;
+            let mut has_audio = false;
+            for value in output.lines().map(str::trim) {
+                has_audio |= value == "audio";
+                if let Ok(parsed) = value.parse::<f64>() {
+                    duration = parsed;
+                }
+            }
+            (duration.max(0.25), has_audio)
+        }
+        _ => (8.0, false),
     };
     let name = path
         .file_name()
@@ -58,17 +67,9 @@ fn import_media(app: tauri::AppHandle) -> Result<Option<MediaInfo>, String> {
     Ok(Some(MediaInfo {
         path: path_string,
         name,
-        duration: duration.max(0.25),
+        duration,
+        has_audio,
     }))
-}
-
-#[tauri::command]
-fn set_preview_speed(speed: f32) -> Result<f32, String> {
-    if [0.25_f32, 0.5, 1.0].contains(&speed) {
-        Ok(speed)
-    } else {
-        Err("Unsupported preview speed".into())
-    }
 }
 
 #[tauri::command]
@@ -142,7 +143,6 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             import_media,
-            set_preview_speed,
             save_project,
             open_project,
             window_action

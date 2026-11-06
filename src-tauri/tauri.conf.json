@@ -3,7 +3,40 @@
   "productName": "Dango",
   "version": "0.1.0",
   "identifier": "app.dango.editor",
-  "build": { "frontendDist": "../frontend" },
-  "app": { "withGlobalTauri": true, "windows": [{ "label": "main", "title": "Dango", "width": 1440, "height": 900, "minWidth": 900, "minHeight": 620, "decorations": false, "resizable": true }], "security": { "assetProtocol": { "enable": true, "scope": ["**/*"] }, "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost; media-src 'self' asset: http://asset.localhost; style-src 'self' 'unsafe-inline'" } },
-  "bundle": { "active": true, "targets": ["nsis"], "icon": ["../icons/Dango.ico"] }
+  "build": {
+    "frontendDist": "../frontend"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Dango",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 700,
+        "minHeight": 500,
+        "decorations": false,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "**/*"
+        ]
+      },
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost; media-src 'self' asset: http://asset.localhost; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "../icons/Dango.ico"
+    ]
+  }
 }
