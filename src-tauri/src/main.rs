@@ -11,6 +11,7 @@ struct MediaInfo {
     name: String,
     duration: f64,
     has_audio: bool,
+    kind: String,
 }
 
 #[derive(Serialize)]
@@ -24,7 +25,7 @@ fn import_media(app: tauri::AppHandle) -> Result<Option<MediaInfo>, String> {
     let Some(path) = app
         .dialog()
         .file()
-        .add_filter("Media", &["mp4", "mov", "mkv", "avi", "webm", "wav", "mp3", "m4a"])
+        .add_filter("Media", &["mp4", "mov", "mkv", "avi", "webm", "wav", "mp3", "m4a", "png", "jpg", "jpeg", "gif", "bmp", "webp"])
         .blocking_pick_file()
     else {
         return Ok(None);
@@ -32,6 +33,32 @@ fn import_media(app: tauri::AppHandle) -> Result<Option<MediaInfo>, String> {
 
     let path: PathBuf = path.into_path().map_err(|error| error.to_string())?;
     let path_string = path.to_string_lossy().to_string();
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let kind = if ["png", "jpg", "jpeg", "gif", "bmp", "webp"].contains(&extension.as_str()) {
+        "image"
+    } else if ["wav", "mp3", "m4a"].contains(&extension.as_str()) {
+        "audio"
+    } else {
+        "video"
+    };
+    if kind == "image" {
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("Image")
+            .to_string();
+        return Ok(Some(MediaInfo {
+            path: path_string,
+            name,
+            duration: 5.0,
+            has_audio: false,
+            kind: kind.to_string(),
+        }));
+    }
     let probe = Command::new("ffprobe")
         .args([
             "-v",
@@ -69,6 +96,7 @@ fn import_media(app: tauri::AppHandle) -> Result<Option<MediaInfo>, String> {
         name,
         duration,
         has_audio,
+        kind: kind.to_string(),
     }))
 }
 
