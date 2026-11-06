@@ -300,3 +300,8 @@ body { background:radial-gradient(ellipse at 45% -15%,rgba(250,246,239,.82) 0,tr
 .export-actions button { padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#fffaf7; cursor:pointer; }
 .export-actions .export-primary { background:#ead8e6; color:#62475c; }
 .export-actions button:disabled { opacity:.55; cursor:wait; }
+
+/* Text is constrained by the drawn box rather than inheriting the viewer's large padding. */
+.title-preview { padding:4px; }
+.media-item { cursor:grab; touch-action:none; user-select:none; }
+.effect-card { touch-action:none; }
