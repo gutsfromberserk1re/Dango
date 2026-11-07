@@ -20,6 +20,34 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
+      - name: Restore cached FFmpeg
+        id: ffmpeg-cache
+        uses: actions/cache@v4
+        with:
+          path: .ffmpeg-cache
+          key: ffmpeg-windows-x64-gpl-2026-11-02-v1
+      - name: Download FFmpeg on cache miss
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $cache = Join-Path $PWD '.ffmpeg-cache'
+          $archive = Join-Path $env:RUNNER_TEMP 'dango-ffmpeg.zip'
+          $extract = Join-Path $env:RUNNER_TEMP 'dango-ffmpeg'
+          New-Item -ItemType Directory -Force -Path $cache, $extract | Out-Null
+          Invoke-WebRequest -Uri 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-02-12-51/ffmpeg-n9.0.2-45-g1e65c6cd5d-win64-gpl-9.0.zip' -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+          $ffmpeg = Get-ChildItem -LiteralPath $extract -Filter 'ffmpeg.exe' -Recurse | Select-Object -First 1
+          $ffprobe = Get-ChildItem -LiteralPath $extract -Filter 'ffprobe.exe' -Recurse | Select-Object -First 1
+          if (-not $ffmpeg -or -not $ffprobe) { throw 'FFmpeg archive did not contain ffmpeg.exe and ffprobe.exe' }
+          Copy-Item -LiteralPath $ffmpeg.FullName -Destination (Join-Path $cache 'ffmpeg.exe')
+          Copy-Item -LiteralPath $ffprobe.FullName -Destination (Join-Path $cache 'ffprobe.exe')
+          $license = Get-ChildItem -LiteralPath $extract -Filter 'LICENSE*' -Recurse | Select-Object -First 1
+          if ($license) { Copy-Item -LiteralPath $license.FullName -Destination (Join-Path $cache 'FFmpeg-LICENSE.txt') }
+      - name: Verify cached FFmpeg tools
+        shell: pwsh
+        run: |
+          if (-not (Test-Path '.ffmpeg-cache/ffmpeg.exe') -or -not (Test-Path '.ffmpeg-cache/ffprobe.exe')) { throw 'Cached FFmpeg tools are missing' }
+          & '.ffmpeg-cache/ffmpeg.exe' -version | Select-Object -First 1
       - name: Check frontend syntax
         run: node --check frontend/app.js
       - name: Validate app configuration
@@ -28,9 +56,20 @@ jobs:
         run: npm install
       - name: Build Tauri app
         run: npm run tauri -- build --no-bundle
+      - name: Assemble portable app
+        shell: pwsh
+        run: |
+          $app = Join-Path $PWD 'dist/Dango'
+          New-Item -ItemType Directory -Force -Path $app, (Join-Path $app 'fonts') | Out-Null
+          Copy-Item -LiteralPath 'src-tauri/target/release/dango.exe' -Destination (Join-Path $app 'Dango.exe')
+          Copy-Item -LiteralPath '.ffmpeg-cache/ffmpeg.exe' -Destination $app
+          Copy-Item -LiteralPath '.ffmpeg-cache/ffprobe.exe' -Destination $app
+          Copy-Item -LiteralPath 'frontend/fonts/ChunkypufflyRegular.otf' -Destination (Join-Path $app 'fonts/ChunkypufflyRegular.otf')
+          if (Test-Path '.ffmpeg-cache/FFmpeg-LICENSE.txt') { Copy-Item -LiteralPath '.ffmpeg-cache/FFmpeg-LICENSE.txt' -Destination $app }
+          @('Dango portable build','FFmpeg is included for import, thumbnails, and export.','FFmpeg source and license: https://github.com/BtbN/FFmpeg-Builds') | Set-Content -LiteralPath (Join-Path $app 'README.txt')
       - uses: actions/upload-artifact@v4
         with:
           name: Dango-windows-x64
-          path: src-tauri/target/release/dango.exe
+          path: dist/Dango/**
           if-no-files-found: error
           retention-days: 14

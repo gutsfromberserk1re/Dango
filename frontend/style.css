@@ -339,6 +339,20 @@ body.resizing-horizontal,body.resizing-horizontal * { cursor:row-resize !importa
 body.clip-dragging,body.clip-dragging * { cursor:grabbing !important; user-select:none !important; }
 .clip.dragging { z-index:20; opacity:.82; filter:saturate(1.08); box-shadow:0 5px 14px rgba(104,70,95,.2),inset 0 0 0 1px rgba(255,255,255,.8); }
 .drag-ghost { position:fixed; z-index:100; max-width:220px; overflow:hidden; padding:7px 11px; border:1px solid rgba(184,127,164,.34); border-radius:9px; background:rgba(255,252,247,.92); box-shadow:0 6px 18px rgba(76,52,71,.18); color:#71586c; font-size:11px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; pointer-events:none; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+.drag-ghost { display:flex; align-items:center; gap:8px; }
+.drag-ghost img { width:42px; height:28px; flex:none; border-radius:5px; object-fit:cover; background:#eee3e9; }
+.history-tools { display:flex; justify-content:center; gap:4px; padding:0 0 6px; border-bottom:1px solid rgba(169,133,157,.18); }
+.history-tools button { display:grid; place-items:center; width:19px; height:20px; padding:0; border:1px solid rgba(163,124,151,.16); border-radius:7px; background:rgba(255,255,255,.54); color:#8b6681; font-size:15px; line-height:1; cursor:pointer; transition:background .14s ease,color .14s ease,transform .14s ease; }
+.history-tools button:hover:not(:disabled) { transform:translateY(-1px); background:#f2e0ed; color:#704d67; }
+.history-tools button:disabled { opacity:.34; cursor:default; }
+.export-status { max-height:150px; overflow:auto; margin:0 0 12px !important; padding:8px 10px; border:1px solid #e7c5d7; border-radius:8px; background:#fff5f8; color:#92516e !important; font-size:10px !important; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
+.clip-overlap-badge { position:absolute; z-index:4; right:12px; top:4px; min-width:18px; max-width:52px; overflow:hidden; padding:2px 5px; border:1px solid rgba(145,100,134,.42); border-radius:6px; background:rgba(255,251,253,.96); box-shadow:0 1px 3px rgba(72,49,68,.12); color:#76516e; font-size:9px; font-weight:800; line-height:1.2; text-align:center; text-overflow:ellipsis; white-space:nowrap; pointer-events:none; }
+.clip.same-lane-overlap { border-color:#d66d8d !important; box-shadow:inset 0 0 0 1px rgba(214,109,141,.5); }
+.clip.layer-overlap { box-shadow:inset 0 0 0 1px rgba(142,109,167,.45); }
+.clip.effect.layer-overlap .clip-overlap-badge { background:#faf2fc; color:#805f91; }
+.clip.video.same-lane-overlap .clip-overlap-badge { border-color:#d66d8d; background:#fff3f5; color:#a14e6b; }
+.black-fade,.vignette { inset:auto; transform:translate(-50%,-50%); }
+.vignette { background:radial-gradient(ellipse at center,transparent 38%,rgba(29,23,32,.72) 100%); }
 .track.drop-target { position:relative; background-color:rgba(248,231,242,.84); box-shadow:inset 0 0 0 1px rgba(217,155,196,.74); }
 .track.drop-target::after { position:absolute; z-index:10; inset:0 auto 0 0; width:2px; background:#bc78a8; box-shadow:0 0 0 3px rgba(188,120,168,.12); content:""; pointer-events:none; }
 .playhead-handle:active { transform:scale(1.3); box-shadow:0 0 0 5px rgba(57,144,214,.16); }
