@@ -497,12 +497,14 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
             let total = half * 2.0;
             let transition_start = cut_time - half;
             let transition_end = cut_time + half;
+            let effect_start = effect["start"].as_f64().unwrap_or(transition_start);
+            let dissolve_intensity = control_expression(effect, "intensity", 100.0, "T", effect_start - transition_start);
             let outgoing_offset = (visual[out_index]["duration"].as_f64().unwrap_or(0.0) - half).max(0.0);
             let out_label = format!("xout{effect_index}");
             let in_label = format!("xin{effect_index}");
             let mix_label = format!("xdissolve{effect_index}");
             let next = format!("base_xdissolve{effect_index}");
-            graph.push_str(&format!(";[tsrc{out_index}]trim=start={outgoing_offset:.4}:duration={half:.4},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration={half:.4},trim=duration={total:.4}[{out_label}];[tsrc{in_index}]trim=start=0:duration={half:.4},setpts=PTS-STARTPTS,tpad=start_mode=clone:start_duration={half:.4},trim=duration={total:.4}[{in_label}];[{out_label}][{in_label}]blend=all_expr='A*(1-T/{total:.4})+B*(T/{total:.4})':shortest=1,format=yuv420p,setpts=PTS-STARTPTS+{transition_start:.4}/TB[{mix_label}];[{last}][{mix_label}]overlay=eof_action=pass:enable='between(t,{transition_start:.4},{transition_end:.4})'[{next}]"));
+            graph.push_str(&format!(";[tsrc{out_index}]trim=start={outgoing_offset:.4}:duration={half:.4},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration={half:.4},trim=duration={total:.4}[{out_label}];[tsrc{in_index}]trim=start=0:duration={half:.4},setpts=PTS-STARTPTS,tpad=start_mode=clone:start_duration={half:.4},trim=duration={total:.4}[{in_label}];[{out_label}][{in_label}]blend=all_expr='A*(1-(T/{total:.4})*min(1\\,max(0\\,({dissolve_intensity})/100)))+B*((T/{total:.4})*min(1\\,max(0\\,({dissolve_intensity})/100)))':shortest=1,format=yuv420p,setpts=PTS-STARTPTS+{transition_start:.4}/TB[{mix_label}];[{last}][{mix_label}]overlay=eof_action=pass:enable='between(t,{transition_start:.4},{transition_end:.4})'[{next}]"));
             last = next;
         }
     }

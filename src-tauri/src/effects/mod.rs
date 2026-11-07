@@ -5,7 +5,12 @@ fn filter_enable(start: f64, end: f64) -> String {
 }
 
 fn effect_value_at(effect: &Value, name: &str, time: f64) -> f64 {
-    let fallback = effect[name].as_f64().unwrap_or(50.0);
+    let default = match name {
+        "offset" => 8.0,
+        "intensity" if effect["effectName"] == "Fade" || effect["effectName"] == "Cross dissolve" => 100.0,
+        _ => 50.0,
+    };
+    let fallback = effect[name].as_f64().unwrap_or(default);
     let Some(keys) = effect["keys"].as_array() else {
         return fallback;
     };
@@ -31,6 +36,17 @@ fn effect_value_at(effect: &Value, name: &str, time: f64) -> f64 {
     previous.1
 }
 
+fn hex_rgb(value: &str, fallback: [f64; 3]) -> [f64; 3] {
+    let hex = value.strip_prefix('#').unwrap_or(value);
+    if hex.len() != 6 || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) { return fallback; }
+    let mut color = [0.0; 3];
+    for (index, component) in color.iter_mut().enumerate() {
+        let Ok(value) = u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16) else { return fallback; };
+        *component = value as f64 / 255.0;
+    }
+    color
+}
+
 fn effect_filters(
     effect: &Value,
     name: &str,
@@ -38,16 +54,25 @@ fn effect_filters(
     enable: &str,
     local_start: f64,
     local_end: f64,
+    fade_start: f64,
+    fade_end: f64,
+    offset: f64,
 ) -> Vec<String> {
     let amount = intensity.clamp(0.0, 100.0) / 100.0;
     match name {
         "Fade" => {
             let direction = effect["direction"].as_str().unwrap_or("in");
-            let mode = if direction == "out" { "out" } else { "in" };
-            vec![format!(
-                "fade=t={mode}:st={local_start:.4}:d={:.4}",
-                local_end - local_start
-            )]
+            let fade_duration = (fade_end - fade_start).max(0.001);
+            let progress = format!("min(1\\,max(0\\,(T-{fade_start:.4})/{fade_duration:.4}))");
+            let factor = if direction == "out" {
+                format!("(1-{amount:.4}*{progress})")
+            } else {
+                format!("(1-{amount:.4}*(1-{progress}))")
+            };
+            vec![
+                "format=rgba".into(),
+                format!("geq=r='r(X,Y)*{factor}':g='g(X,Y)*{factor}':b='b(X,Y)*{factor}':a='alpha(X,Y)':enable='{enable}'"),
+            ]
         }
         "Blur" => vec![format!("gblur=sigma={:.3}:enable='{enable}'", 1.0 + amount * 9.0)],
         "Vignette" => vec![format!("vignette=angle={:.4}:enable='{enable}'", 0.18 + amount * 0.72)],
@@ -75,10 +100,34 @@ fn effect_filters(
         }
         "Grain" => vec![format!("noise=alls={:.2}:allf=t+u:enable='{enable}'", amount * 18.0)],
         "VHS" => vec![
-            format!("chromashift=cbh={:.2}:crh={:.2}:enable='{enable}'", amount * 4.0, -amount * 4.0),
+            format!("chromashift=cbh={}:crh={}:enable='{enable}'", (amount * 4.0).round() as i32, (-amount * 4.0).round() as i32),
             format!("eq=contrast={:.3}:saturation={:.3}:gamma_r=1.04:gamma_b=0.96:enable='{enable}'", 1.0 + amount * 0.2, 1.0 - amount * 0.22),
             format!("noise=alls={:.2}:allf=t+u:enable='{enable}'", amount * 12.0),
         ],
+        "Chromatic Aberration" => {
+            let colors = match effect["palette"].as_str().unwrap_or("RGB") {
+                "GBY" => [[0.0, 1.0, 0.4], [0.09, 0.55, 1.0], [1.0, 0.9, 0.0]],
+                "Pink / Blue / Purple" => [[1.0, 0.31, 0.60], [0.22, 0.84, 1.0], [0.57, 0.30, 1.0]],
+                "Custom" => [
+                    hex_rgb(effect["chromaticColors"]["red"].as_str().unwrap_or("#ff0000"), [1.0, 0.0, 0.0]),
+                    hex_rgb(effect["chromaticColors"]["green"].as_str().unwrap_or("#00ff00"), [0.0, 1.0, 0.0]),
+                    hex_rgb(effect["chromaticColors"]["blue"].as_str().unwrap_or("#0000ff"), [0.0, 0.0, 1.0]),
+                ],
+                _ => [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            };
+            let separation = offset.clamp(0.0, 40.0) * amount;
+            let samples = [format!("(X-{separation:.3})"), "X".into(), format!("(X+{separation:.3})")];
+            let channel_expression = |channel: usize| {
+                format!(
+                    "({:.4}*r({}\\,Y)+{:.4}*g(X\\,Y)+{:.4}*b({}\\,Y))",
+                    colors[0][channel], samples[0], colors[1][channel], colors[2][channel], samples[2]
+                )
+            };
+            vec![
+                "format=rgba".into(),
+                format!("geq=r='{}':g='{}':b='{}':a='alpha(X,Y)':enable='{enable}'", channel_expression(0), channel_expression(1), channel_expression(2)),
+            ]
+        }
         _ => Vec::new(),
     }
 }
@@ -122,14 +171,12 @@ pub fn media_effect_filters(clips: &[Value], clip: &Value) -> Vec<String> {
         let name = effect["effectName"].as_str().unwrap_or("");
         let local_start = active_start - clip_start;
         let local_end = active_end - clip_start;
-        if name == "Fade" {
-            filters.extend(effect_filters(effect, name, 100.0, "", local_start, local_end));
-            continue;
-        }
-        let has_intensity_keys = effect["keys"].as_array().is_some_and(|keys| {
-            keys.iter().any(|key| key["controls"]["intensity"].as_f64().is_some())
+        let fade_start = (effect_start - clip_start).max(0.0);
+        let fade_end = (effect_end - clip_start).min(clip_end - clip_start);
+        let has_animated_keys = effect["keys"].as_array().is_some_and(|keys| {
+            keys.iter().any(|key| key["controls"]["intensity"].as_f64().is_some() || key["controls"]["offset"].as_f64().is_some())
         });
-        if has_intensity_keys {
+        if has_animated_keys {
             let first_frame = (local_start * 30.0).floor() as i64;
             let last_frame = (local_end * 30.0).ceil() as i64;
             for frame in first_frame..last_frame {
@@ -138,13 +185,15 @@ pub fn media_effect_filters(clips: &[Value], clip: &Value) -> Vec<String> {
                 if segment_end <= segment_start { continue; }
                 let effect_time = (segment_start + segment_end) * 0.5 + clip_start - effect_start;
                 let intensity = effect_value_at(effect, "intensity", effect_time);
+                let offset = effect_value_at(effect, "offset", effect_time);
                 let enable = filter_enable(segment_start, (segment_end - 0.0005).max(segment_start));
-                filters.extend(effect_filters(effect, name, intensity, &enable, segment_start, segment_end));
+                filters.extend(effect_filters(effect, name, intensity, &enable, segment_start, segment_end, fade_start, fade_end, offset));
             }
         } else {
             let enable = filter_enable(local_start, local_end);
-            let intensity = effect["intensity"].as_f64().unwrap_or(50.0);
-            filters.extend(effect_filters(effect, name, intensity, &enable, local_start, local_end));
+            let intensity = effect["intensity"].as_f64().unwrap_or(if name == "Fade" { 100.0 } else { 50.0 });
+            let offset = effect["offset"].as_f64().unwrap_or(8.0);
+            filters.extend(effect_filters(effect, name, intensity, &enable, local_start, local_end, fade_start, fade_end, offset));
         }
     }
     filters

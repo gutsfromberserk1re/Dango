@@ -50,6 +50,8 @@ jobs:
           & '.ffmpeg-cache/ffmpeg.exe' -version | Select-Object -First 1
       - name: Check frontend syntax
         run: node --check frontend/app.js
+      - name: Check effect module syntax
+        run: node --check frontend/effects/index.js
       - name: Validate app configuration
         run: node -e "const fs=require('fs'); for(const file of ['package.json','src-tauri/tauri.conf.json','src-tauri/capabilities/default.json']) JSON.parse(fs.readFileSync(file,'utf8'))"
       - name: Install frontend tooling

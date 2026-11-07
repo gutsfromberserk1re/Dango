@@ -10,7 +10,24 @@ export const effects = [
   ['Sharpen', 'Crisp detail', '✧'],
   ['Grain', 'Film grain texture', '▦'],
   ['VHS', 'Analog color and tracking', '▤'],
+  ['Chromatic Aberration', 'Split color channels with adjustable offset', '◈'],
 ];
+
+export const chromaticPalettes = {
+  RGB: ['#ff0000', '#00ff00', '#0000ff'],
+  GBY: ['#00ff66', '#168cff', '#ffe600'],
+  'Pink / Blue / Purple': ['#ff4f9a', '#39d5ff', '#914dff'],
+};
+
+export function effectKeyframeProperties(effect) {
+  return effect.effectName === 'Chromatic Aberration' ? ['intensity', 'offset'] : ['intensity'];
+}
+
+export function chromaticColors(effect) {
+  if (effect.palette !== 'Custom') return chromaticPalettes[effect.palette] || chromaticPalettes.RGB;
+  const saved = effect.chromaticColors || {};
+  return [saved.red || '#ff0000', saved.green || '#00ff00', saved.blue || '#0000ff'];
+}
 
 export function normalizeEffectKeys(effect) {
   if (!Array.isArray(effect.keys)) effect.keys = [];
@@ -20,14 +37,18 @@ export function normalizeEffectKeys(effect) {
       time: Math.max(0, Math.min(Number(effect.duration) || 0, Number(key.time))),
       controls: { ...(key.controls || {}) },
     }))
-    .filter(key => Number.isFinite(Number(key.controls.intensity)))
+    .map(key => ({
+      ...key,
+      controls: Object.fromEntries(Object.entries(key.controls).filter(([, value]) => Number.isFinite(Number(value)))),
+    }))
+    .filter(key => Object.keys(key.controls).length > 0)
     .sort((a, b) => a.time - b.time);
   return effect.keys;
 }
 
 export function effectValueAt(effect, name, time, fallback = 50) {
   const base = Number.isFinite(Number(effect[name])) ? Number(effect[name]) : fallback;
-  const keys = normalizeEffectKeys(effect);
+  const keys = normalizeEffectKeys(effect).filter(key => Number.isFinite(Number(key.controls[name])));
   let previousTime = 0;
   let previousValue = base;
   for (const key of keys) {
@@ -47,22 +68,26 @@ export function effectKeyframeAt(effect, time) {
   return normalizeEffectKeys(effect).find(key => Math.abs(key.time - frame) < 1 / 60) || null;
 }
 
-export function setEffectIntensityAt(effect, time, value) {
+export function setEffectValueAt(effect, time, name, value) {
   const frame = Math.round(Math.max(0, Math.min(Number(effect.duration) || 0, time)) * 30) / 30;
   const keys = normalizeEffectKeys(effect);
   let key = keys.find(item => Math.abs(item.time - frame) < 1 / 60);
   if (!key) {
-    key = { time: frame, controls: { intensity: effectValueAt(effect, 'intensity', frame) } };
+    key = { time: frame, controls: {} };
     keys.push(key);
     keys.sort((a, b) => a.time - b.time);
   }
-  if (value !== undefined) key.controls.intensity = Number(value);
+  if (value !== undefined) key.controls[name] = Number(value);
   return key;
 }
 
-export function createDisplacementMap(kind, width, height, wavelength = 80) {
-  const mapWidth = 256;
-  const mapHeight = Math.max(16, Math.round(mapWidth * height / Math.max(1, width)));
+export function setEffectIntensityAt(effect, time, value) {
+  return setEffectValueAt(effect, time, 'intensity', value);
+}
+
+export function createDisplacementMap(kind, width, height, wavelength = 80, phase = 0) {
+  const mapWidth = 192;
+  const mapHeight = Math.max(16, Math.min(256, Math.round(mapWidth * height / Math.max(1, width))));
   const canvas = document.createElement('canvas');
   canvas.width = mapWidth;
   canvas.height = mapHeight;
@@ -81,7 +106,7 @@ export function createDisplacementMap(kind, width, height, wavelength = 80) {
       dx = rx * Math.cos(angle) - ry * Math.sin(angle) - rx;
       dy = rx * Math.sin(angle) + ry * Math.cos(angle) - ry;
     } else {
-      dx = Math.sin(py * Math.PI * 2 / Math.max(8, wavelength)) * unit * .06;
+      dx = Math.sin(py * Math.PI * 2 / Math.max(8, wavelength) + phase) * unit * .06;
     }
     const offset = (y * mapWidth + x) * 4;
     image.data[offset] = Math.max(0, Math.min(255, 128 + dx / unit * 255));
