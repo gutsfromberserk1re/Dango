@@ -324,7 +324,13 @@ fn media_effect_filters(clips: &[Value], clip: &Value) -> Vec<String> {
             "Warm film" => format!("eq=saturation={:.3}:gamma_r=1.05:gamma_b=0.92:enable='{enable}'", 1.0 + intensity * 0.35),
             "Sharpen" => format!("unsharp=5:5:{:.3}:5:5:0:enable='{enable}'", intensity * 1.5),
             "Soft glow" => format!("eq=brightness={:.3}:saturation={:.3}:enable='{enable}'", intensity * 0.08, 1.0 + intensity * 0.2),
-            "Swirl" => format!("lenscorrection=k1={:.4}:k2={:.4}:enable='{enable}'", intensity * 0.18, intensity * 0.04),
+            "Swirl" => {
+                let radius = "sqrt((X-W/2)*(X-W/2)+(Y-H/2)*(Y-H/2))";
+                let angle = format!("(atan2(Y-H/2,X-W/2)+{:.4}*exp(-({radius})/(min(W,H)*0.45)))", intensity * 2.4);
+                let sample_x = format!("(W/2+({radius})*cos({angle}))");
+                let sample_y = format!("(H/2+({radius})*sin({angle}))");
+                format!("geq=r='r({sample_x}\\,{sample_y})':g='g({sample_x}\\,{sample_y})':b='b({sample_x}\\,{sample_y})':a='alpha(X,Y)':enable='{enable}'")
+            }
             "Wave" => format!("geq=r='r(X+{:.3}*sin(Y/24+T*4)\\,Y)':g='g(X+{:.3}*sin(Y/24+T*4)\\,Y)':b='b(X+{:.3}*sin(Y/24+T*4)\\,Y)':a='alpha(X,Y)':enable='{enable}'", intensity * 18.0, intensity * 18.0, intensity * 18.0),
             _ => continue,
         };
@@ -515,7 +521,7 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         filters.push("setsar=1".into());
         filters.push("setpts=PTS-STARTPTS".into());
         let next = format!("base{}", index + 1);
-        graph.push_str(&format!(";[{index}:v]{},split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(",")));
+        graph.push_str(&format!(";[{index}:v]{},split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]crop=w='min(iw,{width})':h='min(ih,{height})',pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p,fps=30,settb=expr=1/30[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(",")));
         last = next;
     }
 
@@ -523,10 +529,14 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
     for (effect_index, effect) in clips.iter().filter(|clip| clip["kind"] == "effect" && clip["effectName"] == "Cross dissolve").enumerate() {
         let effect_duration = effect["duration"].as_f64().unwrap_or(1.0).clamp(0.1, 10.0);
         let cut = effect["transitionCut"].as_f64().unwrap_or(effect["start"].as_f64().unwrap_or(0.0) + effect_duration / 2.0);
+        let effect_track = effect["track"].as_str().and_then(|track| track.strip_prefix('V')).and_then(|rank| rank.parse::<u32>().ok()).unwrap_or(2);
+        let transition_track = effect_track.saturating_sub(1);
         let mut pair = None;
         for (out_index, outgoing) in visual.iter().enumerate() {
             for (in_index, incoming) in visual.iter().enumerate() {
                 if out_index == in_index { continue; }
+                let rank = |clip: &Value| clip["track"].as_str().and_then(|track| track.strip_prefix('V')).and_then(|rank| rank.parse::<u32>().ok()).unwrap_or(1);
+                if rank(outgoing).max(rank(incoming)) != transition_track { continue; }
                 let out_end = outgoing["start"].as_f64().unwrap_or(0.0) + outgoing["duration"].as_f64().unwrap_or(0.0);
                 let in_start = incoming["start"].as_f64().unwrap_or(0.0);
                 if (out_end - cut).abs() <= 1.0 / 30.0 + 0.002 && (in_start - cut).abs() <= 1.0 / 30.0 + 0.002 {

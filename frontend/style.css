@@ -219,6 +219,7 @@ body { min-width:0; background:radial-gradient(ellipse at 45% -15%,#fff8fb 0,tra
 .keyframe-controls { display:flex; gap:6px; margin-top:12px; }
 .keyframe-controls .keyframe-add { flex:1; width:auto; margin-top:0; }
 .keyframe-controls .keyframe-step { font-size:14px; }
+.keyframe-add-icon.keyframe-remove { font-size:15px; color:#a94d8b; }
 .keyframe-controls button:disabled { opacity:.38; cursor:not-allowed; }
 .key-marker { touch-action:none; }
 .clip-context-menu { position:fixed; z-index:80; min-width:190px; padding:5px; border:1px solid #e3ccdc; border-radius:11px; background:rgba(255,251,253,.96); box-shadow:0 10px 28px rgba(85,55,75,.18); backdrop-filter:blur(14px); }
