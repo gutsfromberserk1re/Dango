@@ -207,6 +207,32 @@ fn bundled_font(app: &tauri::AppHandle) -> Option<PathBuf> {
     candidates.into_iter().find(|path| path.is_file())
 }
 
+fn title_font(app: &tauri::AppHandle, family: &str) -> Option<PathBuf> {
+    if family == "Chunkypuffly" {
+        return bundled_font(app);
+    }
+    let filename = match family {
+        "Arial Rounded MT Bold" => "ARLRDBD.TTF",
+        "Trebuchet MS" => "trebuc.ttf",
+        "Georgia" => "georgia.ttf",
+        "Segoe UI" => "segoeui.ttf",
+        _ => return bundled_font(app),
+    };
+    let mut candidates = Vec::new();
+    if let Ok(resources) = app.path().resource_dir() {
+        candidates.push(resources.join("fonts").join(filename));
+    }
+    if let Ok(executable) = std::env::current_exe() {
+        if let Some(folder) = executable.parent() {
+            candidates.push(folder.join("fonts").join(filename));
+        }
+    }
+    if let Some(windows) = std::env::var_os("WINDIR") {
+        candidates.push(PathBuf::from(windows).join("Fonts").join(filename));
+    }
+    candidates.into_iter().find(|path| path.is_file()).or_else(|| bundled_font(app))
+}
+
 fn filter_enable(start: f64, end: f64) -> String {
     format!("between(t,{start:.4},{end:.4})")
 }
@@ -239,6 +265,22 @@ fn control_expression(clip: &Value, name: &str, fallback: f64, clock: &str, offs
         expression = format!("if(lt({t_expr}\\,{time:.6})\\,{segment}\\,{expression})");
     }
     expression
+}
+
+fn title_color(title: &Value, key: &str, fallback: &str) -> String {
+    let value = title[key].as_str().unwrap_or(fallback);
+    let hex = value.strip_prefix('#').unwrap_or(value);
+    if hex.len() == 6 && hex.chars().all(|character| character.is_ascii_hexdigit()) {
+        format!("0x{hex}")
+    } else {
+        format!("0x{}", fallback.trim_start_matches('#'))
+    }
+}
+
+fn same_file_path(left: &std::path::Path, right: &std::path::Path) -> bool {
+    let left = fs::canonicalize(left).unwrap_or_else(|_| left.to_path_buf());
+    let right = fs::canonicalize(right).unwrap_or_else(|_| right.to_path_buf());
+    left.to_string_lossy().replace('\\', "/").eq_ignore_ascii_case(&right.to_string_lossy().replace('\\', "/"))
 }
 
 fn media_effect_filters(clips: &[Value], clip: &Value) -> Vec<String> {
@@ -400,6 +442,11 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
     if duration <= 0.0 {
         return Err("The timeline has no duration to export".into());
     }
+    for source in clips.iter().filter_map(|clip| clip["path"].as_str()) {
+        if same_file_path(&output, &PathBuf::from(source)) {
+            return Err("Choose a different export file so the source media is preserved".into());
+        }
+    }
 
     let mut command = Command::new(multimedia_tool(&app, "ffmpeg"));
     command.arg("-y");
@@ -448,11 +495,6 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
     let temp_root = std::env::temp_dir().join(format!("dango-export-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis()));
     fs::create_dir_all(&temp_root).map_err(|error| format!("Could not prepare export text: {error}"))?;
     let _temp_files = ExportTempFiles(temp_root.clone());
-    let font_path = if titles.is_empty() {
-        String::new()
-    } else {
-        ffmpeg_filter_path(&bundled_font(&app).ok_or("The Chunkypuffly font is missing from this Dango build")?)
-    };
     let mut graph = format!("color=c=black:s={width}x{height}:r=30:d={duration:.4}[base0]");
     let mut last = "base0".to_string();
     for (index, clip) in visual.iter().enumerate() {
@@ -519,6 +561,8 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         let text_path = temp_root.join(format!("title-{index}.txt"));
         fs::write(&text_path, text).map_err(|error| format!("Could not prepare title text: {error}"))?;
         let escaped_text_path = ffmpeg_filter_path(&text_path);
+        let family = title["titleFont"].as_str().unwrap_or("Chunkypuffly");
+        let font_path = ffmpeg_filter_path(&title_font(&app, family).ok_or("The selected title font is unavailable")?);
         let start = title["start"].as_f64().unwrap_or(0.0).max(0.0);
         let end = start + title["duration"].as_f64().unwrap_or(3.0).max(0.05);
         let controls = &title["controls"];
@@ -529,10 +573,22 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         let y = title["titleBox"]["y"].as_f64().unwrap_or(0.0);
         let box_width = title["titleBox"]["width"].as_f64().unwrap_or(100.0);
         let box_height = title["titleBox"]["height"].as_f64().unwrap_or(100.0);
-        let x_center = (x + box_width / 2.0 + controls["positionX"].as_f64().unwrap_or(0.0)).clamp(0.0, 100.0) / 100.0;
+        let position_x = controls["positionX"].as_f64().unwrap_or(0.0);
+        let x_left = (x + position_x).clamp(0.0, 100.0) / 100.0;
+        let x_right = (x + box_width + position_x).clamp(0.0, 100.0) / 100.0;
+        let x_center = (x + box_width / 2.0 + position_x).clamp(0.0, 100.0) / 100.0;
         let y_center = (y + box_height / 2.0 + controls["positionY"].as_f64().unwrap_or(0.0)).clamp(0.0, 100.0) / 100.0;
+        let alignment = match title["titleAlign"].as_str().unwrap_or("center") {
+            "left" => format!("{width}*{x_left:.5}"),
+            "right" => format!("{width}*{x_right:.5}-text_w"),
+            _ => format!("{width}*{x_center:.5}-text_w/2"),
+        };
+        let text_color = title_color(title, "titleColor", "#ffffff");
+        let outline_color = title_color(title, "titleOutlineColor", "#111111");
+        let outline_width = (title["titleOutlineWidth"].as_f64().unwrap_or(0.0) * height as f64 / 450.0).clamp(0.0, 24.0).round();
+        let shadow = (title["titleShadow"].as_f64().unwrap_or(14.0).clamp(0.0, 32.0) * height as f64 / 450.0).round();
         let next = format!("title{index}");
-        graph.push_str(&format!(";[{last}]drawtext=fontfile='{font_path}':textfile='{escaped_text_path}':expansion=none:fontsize={size:.2}:fontcolor=white@{opacity:.3}:borderw=2:bordercolor=black@0.55:x='({width}*{x_center:.5})-text_w/2':y='({height}*{y_center:.5})-text_h/2':enable='between(t,{start:.4},{end:.4})'[{next}]"));
+        graph.push_str(&format!(";[{last}]drawtext=fontfile='{font_path}':textfile='{escaped_text_path}':expansion=none:fontsize={size:.2}:fontcolor={text_color}@{opacity:.3}:borderw={outline_width:.0}:bordercolor={outline_color}@0.9:shadowcolor=black@0.45:shadowx={shadow:.0}:shadowy={shadow:.0}:x='{alignment}':y='({height}*{y_center:.5})-text_h/2':enable='between(t,{start:.4},{end:.4})'[{next}]"));
         last = next;
     }
 

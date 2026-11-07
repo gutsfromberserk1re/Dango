@@ -16,10 +16,11 @@ npm run dev
 - V1 and V2 plus A1 are visible by default. Dragging above the top video lane reveals another video track; dragging below the audio lanes reveals more audio tracks. Placement is magnetic.
 - Import media to the bin, then drag it into the timeline or double-click to add another instance.
 - Preview imported video and audio, seek by clicking or dragging the playhead, and change preview playback rate.
-- Select, blade, hand, and text tools; title clips can be edited in the Kontrol panel.
+- Select, blade, hand, and text tools; title clips support font, size, alignment, color, outline, shadow, and transform controls.
 - Clip controls and draggable keyframes interpolate X/Y position, size, rotation, speed, and opacity.
 - Fade, swirl, wave, blur, glow, warm film, vignette, and sharpen overlays are saved with the project and preview on the clip. Fade direction and duration are adjustable.
 - Save, Save As, and Open use native file dialogs; New project resets the current edit. Keyboard shortcuts can be edited in Settings.
+- Export MP4 at 480p, 720p, or 1080p with low, medium, or high quality settings. FFmpeg is required; place it beside Dango, in a `ffmpeg` subfolder, or on `PATH`.
 - Viewer/inspector and editor/timeline dividers are resizable.
 
-Frame-accurate FFmpeg rendering/export and complete parity between webview previews and encoded output are still future work.
+Video transform keyframes and title styling are included in export. Some preview effects may still differ from their FFmpeg-rendered versions.

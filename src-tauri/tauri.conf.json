@@ -35,6 +35,9 @@
     "targets": [
       "nsis"
     ],
+    "resources": {
+      "../frontend/fonts/ChunkypufflyRegular.otf": "fonts/ChunkypufflyRegular.otf"
+    },
     "icon": [
       "../icons/Dango.ico"
     ]
