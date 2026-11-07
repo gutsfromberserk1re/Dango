@@ -223,6 +223,22 @@ body { min-width:0; background:radial-gradient(ellipse at 45% -15%,#fff8fb 0,tra
 .keyframe-controls button:disabled { opacity:.38; cursor:not-allowed; }
 .key-marker { touch-action:none; }
 .clip-context-menu { position:fixed; z-index:80; min-width:190px; padding:5px; border:1px solid #e3ccdc; border-radius:11px; background:rgba(255,251,253,.96); box-shadow:0 10px 28px rgba(85,55,75,.18); backdrop-filter:blur(14px); }
+
+/* Keep the layout anchored at time zero as the window and track stack change. */
+.panel,.toolrail { box-shadow:0 9px 26px rgba(95,62,91,.11),0 1px 3px rgba(95,62,91,.045); }
+.editor,.top-workspace,.viewer,.inspector,.timeline,.timeline-viewport { min-width:0; }
+.playhead { bottom:auto; }
+.tabs { gap:5px; padding-right:9px; padding-left:9px; }
+@media (max-width:820px) {
+  .top-workspace { grid-template-columns:44px minmax(0,1fr) 8px minmax(195px,34vw); gap:6px; }
+  .tabs { gap:3px; padding-right:6px; padding-left:6px; }
+  .tab { padding:0 3px; font-size:10px; }
+  .editor { padding-right:8px; padding-left:8px; }
+}
+@media (max-width:680px) {
+  .top-workspace { grid-template-columns:44px minmax(0,1fr); }
+  .timeline-content { min-width:780px; }
+}
 .context-action { display:block; width:100%; padding:8px 10px; border:0; border-radius:7px; background:transparent; color:#705b6e; text-align:left; font:inherit; font-size:11px; cursor:pointer; }
 .context-action:hover:not(:disabled) { background:#f6e8f1; }
 .context-action:disabled { color:#aa9ba8; cursor:default; }

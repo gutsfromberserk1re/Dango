@@ -1,5 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod effects;
+use effects::media_effect_filters;
+
 use serde::Serialize;
 use serde_json::Value;
 use std::{fs, path::PathBuf, process::Command};
@@ -233,10 +236,6 @@ fn title_font(app: &tauri::AppHandle, family: &str) -> Option<PathBuf> {
     candidates.into_iter().find(|path| path.is_file()).or_else(|| bundled_font(app))
 }
 
-fn filter_enable(start: f64, end: f64) -> String {
-    format!("between(t,{start:.4},{end:.4})")
-}
-
 fn control_expression(clip: &Value, name: &str, fallback: f64, clock: &str, offset: f64) -> String {
     let t_expr = if offset.abs() > 0.00001 { format!("({clock}-{offset:.6})") } else { clock.to_string() };
     let base = clip["controls"][name].as_f64().unwrap_or(fallback);
@@ -281,62 +280,6 @@ fn same_file_path(left: &std::path::Path, right: &std::path::Path) -> bool {
     let left = fs::canonicalize(left).unwrap_or_else(|_| left.to_path_buf());
     let right = fs::canonicalize(right).unwrap_or_else(|_| right.to_path_buf());
     left.to_string_lossy().replace('\\', "/").eq_ignore_ascii_case(&right.to_string_lossy().replace('\\', "/"))
-}
-
-fn media_effect_filters(clips: &[Value], clip: &Value) -> Vec<String> {
-    let clip_start = clip["start"].as_f64().unwrap_or(0.0);
-    let clip_end = clip_start + clip["duration"].as_f64().unwrap_or(0.0);
-    let clip_track = clip["track"]
-        .as_str()
-        .and_then(|track| track.strip_prefix('V'))
-        .and_then(|rank| rank.parse::<u32>().ok())
-        .unwrap_or(1);
-    let mut filters = Vec::new();
-    for effect in clips.iter().filter(|item| item["kind"] == "effect") {
-        let effect_track = effect["track"]
-            .as_str()
-            .and_then(|track| track.strip_prefix('V'))
-            .and_then(|rank| rank.parse::<u32>().ok())
-            .unwrap_or(2);
-        if effect_track <= clip_track || effect["effectName"] == "Cross dissolve" {
-            continue;
-        }
-        let effect_start = effect["start"].as_f64().unwrap_or(0.0);
-        let effect_end = effect_start + effect["duration"].as_f64().unwrap_or(0.0);
-        let active_start = effect_start.max(clip_start);
-        let active_end = effect_end.min(clip_end);
-        if active_end <= active_start {
-            continue;
-        }
-        let local_start = active_start - clip_start;
-        let local_end = active_end - clip_start;
-        let enable = filter_enable(local_start, local_end);
-        let intensity = (effect["intensity"].as_f64().unwrap_or(50.0) / 100.0).clamp(0.0, 1.0);
-        let name = effect["effectName"].as_str().unwrap_or("");
-        let filter = match name {
-            "Fade" => {
-                let direction = effect["direction"].as_str().unwrap_or("in");
-                let mode = if direction == "out" { "out" } else { "in" };
-                format!("fade=t={mode}:st={local_start:.4}:d={:.4}", active_end - active_start)
-            }
-            "Blur" => format!("gblur=sigma={:.3}:enable='{enable}'", 1.0 + intensity * 9.0),
-            "Vignette" => format!("vignette=angle={:.4}:enable='{enable}'", 0.18 + intensity * 0.72),
-            "Warm film" => format!("eq=saturation={:.3}:gamma_r=1.05:gamma_b=0.92:enable='{enable}'", 1.0 + intensity * 0.35),
-            "Sharpen" => format!("unsharp=5:5:{:.3}:5:5:0:enable='{enable}'", intensity * 1.5),
-            "Soft glow" => format!("eq=brightness={:.3}:saturation={:.3}:enable='{enable}'", intensity * 0.08, 1.0 + intensity * 0.2),
-            "Swirl" => {
-                let radius = "sqrt((X-W/2)*(X-W/2)+(Y-H/2)*(Y-H/2))";
-                let angle = format!("(atan2(Y-H/2,X-W/2)+{:.4}*exp(-({radius})/(min(W,H)*0.45)))", intensity * 2.4);
-                let sample_x = format!("(W/2+({radius})*cos({angle}))");
-                let sample_y = format!("(H/2+({radius})*sin({angle}))");
-                format!("geq=r='r({sample_x}\\,{sample_y})':g='g({sample_x}\\,{sample_y})':b='b({sample_x}\\,{sample_y})':a='alpha(X,Y)':enable='{enable}'")
-            }
-            "Wave" => format!("geq=r='r(X+{:.3}*sin(Y/24+T*4)\\,Y)':g='g(X+{:.3}*sin(Y/24+T*4)\\,Y)':b='b(X+{:.3}*sin(Y/24+T*4)\\,Y)':a='alpha(X,Y)':enable='{enable}'", intensity * 18.0, intensity * 18.0, intensity * 18.0),
-            _ => continue,
-        };
-        filters.push(filter);
-    }
-    filters
 }
 
 #[tauri::command]
