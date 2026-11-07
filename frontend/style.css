@@ -221,6 +221,18 @@ body { min-width:0; background:radial-gradient(ellipse at 45% -15%,#fff8fb 0,tra
 .keyframe-controls .keyframe-step { font-size:14px; }
 .keyframe-controls button:disabled { opacity:.38; cursor:not-allowed; }
 .key-marker { touch-action:none; }
+.clip-context-menu { position:fixed; z-index:80; min-width:190px; padding:5px; border:1px solid #e3ccdc; border-radius:11px; background:rgba(255,251,253,.96); box-shadow:0 10px 28px rgba(85,55,75,.18); backdrop-filter:blur(14px); }
+.context-action { display:block; width:100%; padding:8px 10px; border:0; border-radius:7px; background:transparent; color:#705b6e; text-align:left; font:inherit; font-size:11px; cursor:pointer; }
+.context-action:hover:not(:disabled) { background:#f6e8f1; }
+.context-action:disabled { color:#aa9ba8; cursor:default; }
+.context-action.danger { color:#aa5e74; }
+.context-divider { height:1px; margin:4px 6px; background:#eadce6; }
+.audio-control-note { margin:0 0 12px; color:#968495; font-size:10px; line-height:1.5; }
+.audio-mute { width:100%; margin-top:8px; padding:8px 10px; border:1px solid #e8d8e4; border-radius:8px; background:#fff9fc; color:#826b7e; font:inherit; font-size:11px; cursor:pointer; }
+.audio-mute[aria-pressed="true"] { border-color:#dca6c9; background:#f5e3ef; color:#9d4f83; }
+.clip.audio.muted { opacity:.52; }
+.clip.effect.cross-dissolve { border-color:#c8a8d8; background:linear-gradient(110deg,#e6d6ef,#f3e8f5 48%,#e5d3ef); color:#765b83; }
+.clip.effect.cross-dissolve .effect-symbol { color:#8e69a2; }
 
 @font-face {
   font-family:"Chunkypuffly";
