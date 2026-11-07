@@ -211,6 +211,36 @@ fn filter_enable(start: f64, end: f64) -> String {
     format!("between(t,{start:.4},{end:.4})")
 }
 
+fn control_expression(clip: &Value, name: &str, fallback: f64, clock: &str, offset: f64) -> String {
+    let t_expr = if offset.abs() > 0.00001 { format!("({clock}-{offset:.6})") } else { clock.to_string() };
+    let base = clip["controls"][name].as_f64().unwrap_or(fallback);
+    let mut keys: Vec<(f64, f64)> = clip["keys"].as_array().into_iter().flatten()
+        .filter_map(|key| Some((key["time"].as_f64()?, key["controls"][name].as_f64()?)))
+        .filter(|(time, _)| time.is_finite() && *time >= 0.0)
+        .collect();
+    keys.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    if keys.is_empty() { return format!("{base:.6}"); }
+    let mut previous_time = 0.0;
+    let mut previous_value = base;
+    let mut segments = Vec::new();
+    for (time, value) in keys {
+        if time <= previous_time + 0.00001 {
+            previous_value = value;
+            previous_time = time;
+            continue;
+        }
+        let segment = format!("{previous_value:.6}+({value:.6}-{previous_value:.6})*({t_expr}-{previous_time:.6})/{:.6}", time - previous_time);
+        segments.push((time, segment));
+        previous_time = time;
+        previous_value = value;
+    }
+    let mut expression = format!("{previous_value:.6}");
+    for (time, segment) in segments.into_iter().rev() {
+        expression = format!("if(lt({t_expr}\\,{time:.6})\\,{segment}\\,{expression})");
+    }
+    expression
+}
+
 fn media_effect_filters(clips: &[Value], clip: &Value) -> Vec<String> {
     let clip_start = clip["start"].as_f64().unwrap_or(0.0);
     let clip_end = clip_start + clip["duration"].as_f64().unwrap_or(0.0);
@@ -253,7 +283,7 @@ fn media_effect_filters(clips: &[Value], clip: &Value) -> Vec<String> {
             "Sharpen" => format!("unsharp=5:5:{:.3}:5:5:0:enable='{enable}'", intensity * 1.5),
             "Soft glow" => format!("eq=brightness={:.3}:saturation={:.3}:enable='{enable}'", intensity * 0.08, 1.0 + intensity * 0.2),
             "Swirl" => format!("lenscorrection=k1={:.4}:k2={:.4}:enable='{enable}'", intensity * 0.18, intensity * 0.04),
-            "Wave" => format!("lenscorrection=k1={:.4}:k2={:.4}:enable='{enable}'", -intensity * 0.12, intensity * 0.03),
+            "Wave" => format!("geq=r='r(X+{:.3}*sin(Y/24+T*4)\\,Y)':g='g(X+{:.3}*sin(Y/24+T*4)\\,Y)':b='b(X+{:.3}*sin(Y/24+T*4)\\,Y)':a='alpha(X,Y)':enable='{enable}'", intensity * 18.0, intensity * 18.0, intensity * 18.0),
             _ => continue,
         };
         filters.push(filter);
@@ -340,7 +370,10 @@ async fn export_video(app: tauri::AppHandle, contents: String, quality: String) 
 fn render_export(app: tauri::AppHandle, contents: String, quality: String, output: PathBuf) -> Result<String, String> {
     let project: Value = serde_json::from_str(&contents).map_err(|error| error.to_string())?;
     let clips = project.get("clips").and_then(Value::as_array).ok_or("Project has no timeline")?;
-    let (width, height) = match quality.as_str() {
+    let mut quality_parts = quality.split('-');
+    let resolution = quality_parts.next().unwrap_or("720");
+    let quality_level = quality_parts.next().unwrap_or("medium");
+    let (width, height) = match resolution {
         "480" => (854, 480),
         "1080" => (1920, 1080),
         _ => (1280, 720),
@@ -426,23 +459,20 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         let start = clip["start"].as_f64().unwrap_or(0.0).max(0.0);
         let clip_duration = clip["duration"].as_f64().unwrap_or(1.0).max(0.05);
         let end = start + clip_duration;
-        let controls = &clip["controls"];
-        let scale = (controls["size"].as_f64().unwrap_or(100.0) / 100.0).clamp(0.1, 4.0);
-        let opacity = (controls["opacity"].as_f64().unwrap_or(100.0) / 100.0).clamp(0.0, 1.0);
-        let x = controls["positionX"].as_f64().unwrap_or(0.0).clamp(-100.0, 100.0);
-        let y = controls["positionY"].as_f64().unwrap_or(0.0).clamp(-100.0, 100.0);
-        let rotation = controls["rotation"].as_f64().unwrap_or(0.0);
-        let mut filters = vec![format!("scale={width}:{height}:force_original_aspect_ratio=decrease"), format!("scale=iw*{scale:.4}:ih*{scale:.4}")];
-        if rotation.abs() > 0.01 {
-            filters.push(format!("rotate={:.6}*PI/180:ow=rotw(iw):oh=roth(ih):c=none", rotation));
-        }
+        let scale = control_expression(clip, "size", 100.0, "t", 0.0);
+        let opacity = control_expression(clip, "opacity", 100.0, "T", 0.0);
+        let x = control_expression(clip, "positionX", 0.0, "t", start);
+        let y = control_expression(clip, "positionY", 0.0, "t", start);
+        let rotation = control_expression(clip, "rotation", 0.0, "t", 0.0);
+        let mut filters = vec![format!("scale={width}:{height}:force_original_aspect_ratio=decrease"), format!("scale=iw*({scale})/100:ih*({scale})/100:eval=frame")];
+        filters.push(format!("rotate='({rotation})*PI/180':ow=rotw(iw):oh=roth(ih):c=none"));
         filters.extend(media_effect_filters(clips, clip));
         filters.push("format=rgba".into());
-        filters.push(format!("colorchannelmixer=aa={opacity:.4}"));
+        filters.push(format!("geq=a='alpha(X,Y)*({opacity})/100'"));
         filters.push("setsar=1".into());
         filters.push("setpts=PTS-STARTPTS".into());
         let next = format!("base{}", index + 1);
-        graph.push_str(&format!(";[{index}:v]{},split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+{:.4}*W/100':y='(H-h)/2+{:.4}*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(","), x, y));
+        graph.push_str(&format!(";[{index}:v]{},split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(",")));
         last = next;
     }
 
@@ -522,7 +552,8 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
     }
     command.arg("-filter_complex").arg(&graph).args(["-map", "[vout]"]);
     if !audio_labels.is_empty() { command.args(["-map", "[aout]"]); } else { command.arg("-an"); }
-    command.args(["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-r", "30"]);
+    let (preset, crf) = match quality_level { "low" => ("fast", "28"), "high" => ("slow", "18"), _ => ("medium", "23") };
+    command.args(["-c:v", "libx264", "-preset", preset, "-crf", crf, "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-r", "30"]);
     if !audio_labels.is_empty() { command.args(["-c:a", "aac", "-b:a", "192k"]); }
     let result = command.arg("-t").arg(format!("{duration:.4}")).arg(&output).output()
         .map_err(|error| format!("FFmpeg could not start: {error}. Put ffmpeg.exe beside Dango or add FFmpeg to PATH."))?;
