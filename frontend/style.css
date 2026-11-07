@@ -233,6 +233,7 @@ body { min-width:0; background:radial-gradient(ellipse at 45% -15%,#fff8fb 0,tra
 .clip.audio.muted { opacity:.52; }
 .clip.effect.cross-dissolve { border-color:#c8a8d8; background:linear-gradient(110deg,#e6d6ef,#f3e8f5 48%,#e5d3ef); color:#765b83; }
 .clip.effect.cross-dissolve .effect-symbol { color:#8e69a2; }
+#previewCanvas,.title-preview { will-change:transform; transform-origin:center center; }
 
 @font-face {
   font-family:"Chunkypuffly";

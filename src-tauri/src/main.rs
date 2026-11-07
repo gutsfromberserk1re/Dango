@@ -506,7 +506,8 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         let x = control_expression(clip, "positionX", 0.0, "t", start);
         let y = control_expression(clip, "positionY", 0.0, "t", start);
         let rotation = control_expression(clip, "rotation", 0.0, "t", 0.0);
-        let mut filters = vec![format!("scale={width}:{height}:force_original_aspect_ratio=decrease"), format!("scale=iw*({scale})/100:ih*({scale})/100:eval=frame")];
+        // Keyframe expressions use if(...,...,...); quote them so FFmpeg keeps commas inside scale expressions.
+        let mut filters = vec![format!("scale={width}:{height}:force_original_aspect_ratio=decrease"), format!("scale='iw*({scale})/100':'ih*({scale})/100':eval=frame")];
         filters.push(format!("rotate='({rotation})*PI/180':ow=rotw(iw):oh=roth(ih):c=none"));
         filters.extend(media_effect_filters(clips, clip));
         filters.push("format=rgba".into());
