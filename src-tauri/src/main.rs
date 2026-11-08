@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod effects;
-use effects::media_effect_filters;
+use effects::{media_effect_steps, render_filtergraph, RenderCfg};
 
 use serde::Serialize;
 use serde_json::Value;
@@ -456,15 +456,17 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         let y = control_expression(clip, "positionY", 0.0, "t", start);
         let rotation = control_expression(clip, "rotation", 0.0, "t", 0.0);
         // Keyframe expressions use if(...,...,...); quote them so FFmpeg keeps commas inside scale expressions.
-        let mut filters = vec![format!("scale={width}:{height}:force_original_aspect_ratio=decrease"), format!("scale='iw*({scale})/100':'ih*({scale})/100':eval=frame")];
-        filters.push(format!("rotate='({rotation})*PI/180':ow=rotw(iw):oh=roth(ih):c=none"));
-        filters.extend(media_effect_filters(clips, clip));
-        filters.push("format=rgba".into());
-        filters.push(format!("geq=a='alpha(X,Y)*({opacity})/100'"));
-        filters.push("setsar=1".into());
-        filters.push("setpts=PTS-STARTPTS".into());
+        let filters = vec![
+            format!("scale={width}:{height}:force_original_aspect_ratio=decrease"),
+            format!("scale='iw*({scale})/100':'ih*({scale})/100':eval=frame"),
+            format!("rotate='({rotation})*PI/180':ow=rotw(iw):oh=roth(ih):c=none"),
+        ];
+        let effect_steps = media_effect_steps(clips, clip, RenderCfg { fps: 30.0, height: height as f64 });
+        let effect_input = format!("fxin{index}");
+        let effect_output = format!("fxout{index}");
+        let effect_graph = render_filtergraph(&effect_steps, &effect_input, &effect_output, &format!("fx{index}"));
         let next = format!("base{}", index + 1);
-        graph.push_str(&format!(";[{index}:v]{},split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]crop=w='min(iw,{width})':h='min(ih,{height})',pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p,fps=30,settb=expr=1/30[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(",")));
+        graph.push_str(&format!(";[{index}:v]setpts=PTS-STARTPTS,{}[{effect_input}];{effect_graph};[{effect_output}]format=rgba,geq=a='alpha(X,Y)*({opacity})/100',setsar=1,setpts=PTS-STARTPTS,split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]crop=w='min(iw,{width})':h='min(ih,{height})',pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p,fps=30,settb=expr=1/30[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(",")));
         last = next;
     }
 
