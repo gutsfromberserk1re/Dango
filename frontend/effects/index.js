@@ -31,18 +31,18 @@ export function chromaticColors(effect) {
 
 export function normalizeEffectKeys(effect) {
   if (!Array.isArray(effect.keys)) effect.keys = [];
-  effect.keys = effect.keys
-    .filter(key => key && typeof key === 'object' && Number.isFinite(Number(key.time)))
-    .map(key => ({
-      time: Math.max(0, Math.min(Number(effect.duration) || 0, Number(key.time))),
-      controls: { ...(key.controls || {}) },
-    }))
-    .map(key => ({
-      ...key,
-      controls: Object.fromEntries(Object.entries(key.controls).filter(([, value]) => Number.isFinite(Number(value)))),
-    }))
-    .filter(key => Object.keys(key.controls).length > 0)
-    .sort((a, b) => a.time - b.time);
+  const duration = Math.max(0, Number(effect.duration) || 0);
+  const frames = new Map();
+  for (const raw of effect.keys) {
+    if (!raw || typeof raw !== 'object' || !Number.isFinite(Number(raw.time))) continue;
+    const time = Math.round(Math.max(0, Math.min(duration, Number(raw.time))) * 30) / 30;
+    const controls = Object.fromEntries(Object.entries(raw.controls || {}).filter(([, value]) => Number.isFinite(Number(value))));
+    if (!Object.keys(controls).length) continue;
+    const existing = frames.get(time);
+    if (existing) existing.controls = { ...existing.controls, ...controls };
+    else frames.set(time, { time, controls });
+  }
+  effect.keys = [...frames.values()].sort((a, b) => a.time - b.time);
   return effect.keys;
 }
 
@@ -64,14 +64,14 @@ export function effectValueAt(effect, name, time, fallback = 50) {
 }
 
 export function effectKeyframeAt(effect, time) {
-  const frame = Math.round(Math.max(0, Math.min(Number(effect.duration) || 0, time)) * 30) / 30;
-  return normalizeEffectKeys(effect).find(key => Math.abs(key.time - frame) < 1 / 60) || null;
+  const position = Math.max(0, Math.min(Number(effect.duration) || 0, Number(time) || 0));
+  return normalizeEffectKeys(effect).find(key => Math.abs(key.time - position) <= 0.001) || null;
 }
 
 export function setEffectValueAt(effect, time, name, value) {
   const frame = Math.round(Math.max(0, Math.min(Number(effect.duration) || 0, time)) * 30) / 30;
   const keys = normalizeEffectKeys(effect);
-  let key = keys.find(item => Math.abs(item.time - frame) < 1 / 60);
+  let key = keys.find(item => Math.abs(item.time - frame) <= 0.001);
   if (!key) {
     key = { time: frame, controls: {} };
     keys.push(key);
@@ -106,7 +106,7 @@ export function createDisplacementMap(kind, width, height, wavelength = 80, phas
       dx = rx * Math.cos(angle) - ry * Math.sin(angle) - rx;
       dy = rx * Math.sin(angle) + ry * Math.cos(angle) - ry;
     } else {
-      dx = Math.sin(py * Math.PI * 2 / Math.max(8, wavelength) + phase) * unit * .06;
+      dx = Math.sin(py * Math.PI * 2 / Math.max(1, wavelength) + phase) * unit * .018;
     }
     const offset = (y * mapWidth + x) * 4;
     image.data[offset] = Math.max(0, Math.min(255, 128 + dx / unit * 255));
