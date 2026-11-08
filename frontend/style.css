@@ -112,7 +112,7 @@ button { color: inherit; }
 .ruler, .track { display: grid; grid-template-columns: 64px 1fr; }
 .ruler { position: sticky; z-index: 3; top: 0; height: 28px; border-bottom: 1px solid #f2eaf0; background: #fffdfedc; backdrop-filter: blur(8px); }
 .track { height: 62px; animation: lane-reveal .17s ease-out both; }
-.track-name { position: sticky; z-index: 2; left: 0; display: flex; align-items: center; padding-left: 12px; border-right: 1px solid #f2eaf0; background: #fffdfd; color: #927e90; font-size: 9px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.track-name { position: sticky; z-index: 10; left: 0; display: flex; align-items: center; padding-left: 12px; border-right: 1px solid #f2eaf0; background: #fffdfd; color: #927e90; font-size: 9px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .ticks { display: flex; align-items: center; justify-content: space-between; overflow: hidden; padding: 0 9px; background: repeating-linear-gradient(to right, transparent 0, transparent calc(var(--tick, 96px) - 1px), #f2eaf0 calc(var(--tick, 96px) - 1px), #f2eaf0 var(--tick, 96px)); color: #a696a4; font-size: 9px; }
 .lane { position: relative; overflow: visible; background: repeating-linear-gradient(to right, transparent 0, transparent calc(var(--tick, 96px) - 1px), #f7f1f5 calc(var(--tick, 96px) - 1px), #f7f1f5 var(--tick, 96px)); }
 .clip { position: absolute; top: 8px; bottom: 8px; min-width: 48px; display: flex; align-items: center; overflow: hidden; border: 1px solid #c7ddca; border-radius: 6px; cursor: grab; user-select: none; }
@@ -379,3 +379,4 @@ input[type="range"] { cursor:ew-resize; }
 input[type="range"]::-webkit-slider-thumb { transition:transform .12s ease,box-shadow .12s ease; }
 input[type="range"]:hover::-webkit-slider-thumb,input[type="range"]:focus-visible::-webkit-slider-thumb { transform:scale(1.16); box-shadow:0 0 0 4px rgba(188,120,168,.15); }
 button:focus-visible,input:focus-visible,select:focus-visible { outline:2px solid rgba(188,120,168,.52); outline-offset:2px; }
+body,body * { -webkit-text-stroke:.14px currentColor; }

@@ -472,18 +472,18 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
     for (effect_index, effect) in clips.iter().filter(|clip| clip["kind"] == "effect" && clip["effectName"] == "Cross dissolve").enumerate() {
         let effect_duration = effect["duration"].as_f64().unwrap_or(1.0).clamp(0.1, 10.0);
         let cut = effect["transitionCut"].as_f64().unwrap_or(effect["start"].as_f64().unwrap_or(0.0) + effect_duration / 2.0);
-        let effect_track = effect["track"].as_str().and_then(|track| track.strip_prefix('V')).and_then(|rank| rank.parse::<u32>().ok()).unwrap_or(2);
-        let transition_track = effect_track.saturating_sub(1);
         let mut pair = None;
+        let mut pair_rank = 0;
         for (out_index, outgoing) in visual.iter().enumerate() {
             for (in_index, incoming) in visual.iter().enumerate() {
                 if out_index == in_index { continue; }
                 let rank = |clip: &Value| clip["track"].as_str().and_then(|track| track.strip_prefix('V')).and_then(|rank| rank.parse::<u32>().ok()).unwrap_or(1);
-                if rank(outgoing).max(rank(incoming)) != transition_track { continue; }
+                let candidate_rank = rank(outgoing).max(rank(incoming));
                 let out_end = outgoing["start"].as_f64().unwrap_or(0.0) + outgoing["duration"].as_f64().unwrap_or(0.0);
                 let in_start = incoming["start"].as_f64().unwrap_or(0.0);
-                if (out_end - cut).abs() <= 1.0 / 30.0 + 0.002 && (in_start - cut).abs() <= 1.0 / 30.0 + 0.002 {
+                if candidate_rank >= pair_rank && (out_end - cut).abs() <= 1.0 / 30.0 + 0.002 && (in_start - cut).abs() <= 1.0 / 30.0 + 0.002 {
                     pair = Some((out_index, in_index, out_end));
+                    pair_rank = candidate_rank;
                 }
             }
         }
