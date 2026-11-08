@@ -421,6 +421,41 @@ fn track_rank(item: &Value, default: u32) -> u32 {
         .and_then(|rank| rank.parse::<u32>().ok()).unwrap_or(default)
 }
 
+fn clip_color_expression(clip: &Value, name: &str, fallback: f64, fps: f64, time_var: &str) -> String {
+    let base = clip["color"][name].as_f64().unwrap_or(fallback);
+    let mut keys: Vec<(f64, f64)> = clip["keys"].as_array().into_iter().flatten()
+        .filter_map(|key| Some((key["time"].as_f64()?, key["controls"][name].as_f64()?)))
+        .filter(|(time, value)| time.is_finite() && *time >= 0.0 && value.is_finite())
+        .collect();
+    keys.sort_by(|a, b| a.0.total_cmp(&b.0));
+    if keys.is_empty() { return format!("{base:.4}"); }
+
+    let mut previous = (0.0, base);
+    let mut segments = Vec::new();
+    for (time, value) in keys {
+        if time <= previous.0 + 0.00001 {
+            previous = (time, value);
+            continue;
+        }
+        let span = (time - previous.0).max(1.0 / fps.max(1.0));
+        let segment = format!("({:.4})+(({value:.4})-({:.4}))*clip(({time_var}-{:.4})/{span:.4},0,1)", previous.1, previous.1, previous.0);
+        segments.push((time, segment));
+        previous = (time, value);
+    }
+    let mut expression = format!("{:.4}", previous.1);
+    for (time, segment) in segments.into_iter().rev() {
+        expression = format!("if(lt({time_var},{time:.4}),{segment},{expression})");
+    }
+    expression
+}
+
+fn has_clip_color_keys(clip: &Value, name: &str, fallback: f64) -> bool {
+    let base = clip["color"][name].as_f64().unwrap_or(fallback);
+    clip["keys"].as_array().map_or(false, |keys| keys.iter().any(|key| {
+        key["controls"][name].as_f64().map_or(false, |value| (value - base).abs() > 0.001)
+    }))
+}
+
 pub fn media_effect_steps(clips: &[Value], clip: &Value, cfg: RenderCfg) -> Vec<Step> {
     let cfg = RenderCfg {
         fps: if cfg.fps > 0.0 { cfg.fps } else { 30.0 },
@@ -433,19 +468,35 @@ pub fn media_effect_steps(clips: &[Value], clip: &Value, cfg: RenderCfg) -> Vec<
 
     let color = &clip["color"];
     if !color.is_null() {
-        let hue = color["hue"].as_f64().unwrap_or(0.0).clamp(-180.0, 180.0);
-        let saturation = (color["saturation"].as_f64().unwrap_or(100.0) / 100.0).clamp(0.0, 2.0);
-        let brightness = (color["brightness"].as_f64().unwrap_or(0.0) / 100.0).clamp(-1.0, 1.0);
-        let contrast = (color["contrast"].as_f64().unwrap_or(100.0) / 100.0).clamp(0.0, 2.0);
-        let sharpness = (color["sharpness"].as_f64().unwrap_or(0.0) / 100.0).clamp(0.0, 1.0) * 1.5;
-        if hue.abs() > 0.001 || (saturation - 1.0).abs() > 0.001 {
-            steps.push(Step::Chain(format!("hue=h={hue:.3}:s={saturation:.3}")));
+        let hue = clip_color_expression(clip, "hue", 0.0, cfg.fps, "t");
+        let saturation = clip_color_expression(clip, "saturation", 100.0, cfg.fps, "t");
+        let lightness = clip_color_expression(clip, "lightness", 0.0, cfg.fps, "t");
+        let brightness = clip_color_expression(clip, "brightness", 0.0, cfg.fps, "t");
+        let contrast = clip_color_expression(clip, "contrast", 100.0, cfg.fps, "t");
+        let sharpness = clip_color_expression(clip, "sharpness", 0.0, cfg.fps, "T");
+        if color["hue"].as_f64().unwrap_or(0.0).abs() > 0.001
+            || (color["saturation"].as_f64().unwrap_or(100.0) - 100.0).abs() > 0.001
+            || has_clip_color_keys(clip, "hue", 0.0) || has_clip_color_keys(clip, "saturation", 100.0) {
+            steps.push(Step::Chain(format!(
+                "hue=h='clip(({hue}),-180,180)':s='clip(({saturation})/100,0,2)':eval=frame"
+            )));
         }
-        if brightness.abs() > 0.001 || (contrast - 1.0).abs() > 0.001 {
-            steps.push(Step::Chain(format!("eq=brightness={brightness:.3}:contrast={contrast:.3}")));
+        if color["brightness"].as_f64().unwrap_or(0.0).abs() > 0.001
+            || color["lightness"].as_f64().unwrap_or(0.0).abs() > 0.001
+            || (color["contrast"].as_f64().unwrap_or(100.0) - 100.0).abs() > 0.001
+            || has_clip_color_keys(clip, "brightness", 0.0) || has_clip_color_keys(clip, "lightness", 0.0) || has_clip_color_keys(clip, "contrast", 100.0) {
+            steps.push(Step::Chain(format!(
+                "eq=brightness='clip((({brightness})+({lightness}))/100,-1,1)':contrast='clip(({contrast})/100,0,2)':eval=frame"
+            )));
         }
-        if sharpness > 0.001 {
-            steps.push(Step::Chain(format!("unsharp=5:5:{sharpness:.3}:5:5:0")));
+        if color["sharpness"].as_f64().unwrap_or(0.0) > 0.001 || has_clip_color_keys(clip, "sharpness", 0.0) {
+            let amount = format!("clip(({sharpness})/100,0,1)");
+            let mix = format!("A*(1-{amount})+B*{amount}");
+            steps.push(Step::Branch {
+                prep: vec!["format=gbrap".into()],
+                branch: vec!["unsharp=5:5:1.5:5:5:0".into()],
+                merge: format!("blend=c0_expr='{mix}':c1_expr='{mix}':c2_expr='{mix}':c3_expr='A'"),
+            });
         }
     }
 

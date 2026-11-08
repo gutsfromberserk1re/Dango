@@ -406,6 +406,7 @@ body,body * { -webkit-text-stroke:.14px currentColor; }
 body,body * { -webkit-text-stroke:.05px currentColor; }
 .mini-label,.track-name,.ticks,.clip-title { font-size:10px; }
 .attached-effects-section { margin-top:15px; padding-top:12px; border-top:1px solid var(--line); }
+.color-group-title { margin:11px 0 2px; font-size:10px; letter-spacing:.35px; }
 .attached-effect-editor { padding:9px 0 11px; border-bottom:1px solid var(--line); }
 .effect-control-heading { display:flex; align-items:center; gap:8px; margin:0 0 5px; }
 .effect-control-heading h3 { flex:1; margin:0; color:var(--ink); font-size:12px; font-weight:700; }
