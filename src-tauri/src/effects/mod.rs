@@ -453,6 +453,15 @@ pub fn media_effect_steps(clips: &[Value], clip: &Value, cfg: RenderCfg) -> Vec<
 
     for effect in clips.iter().filter(|item| item["kind"] == "effect") {
         let name = effect["effectName"].as_str().unwrap_or("");
+        if let Some(target_id) = effect["targetClipId"].as_str() {
+            let clip_id = clip["id"].as_str().unwrap_or("");
+            let applies_to_clip = target_id == clip_id
+                || (name == "Cross dissolve"
+                    && effect["outgoingClipId"].as_str() == Some(clip_id));
+            if !applies_to_clip {
+                continue;
+            }
+        }
         if name == "Cross dissolve" || track_rank(effect, 2) <= clip_track {
             continue;
         }
@@ -526,6 +535,12 @@ pub fn media_effect_steps(clips: &[Value], clip: &Value, cfg: RenderCfg) -> Vec<
     // like a dissolve if the two clips actually overlap in time and the outgoing
     // one is composited underneath the incoming one (overlay).
     for effect in clips.iter().filter(|item| item["kind"] == "effect" && item["effectName"] == "Cross dissolve") {
+        if let Some(target_id) = effect["targetClipId"].as_str() {
+            let clip_id = clip["id"].as_str().unwrap_or("");
+            if target_id != clip_id && effect["outgoingClipId"].as_str() != Some(clip_id) {
+                continue;
+            }
+        }
         if track_rank(effect, 2) < clip_track {
             continue;
         }

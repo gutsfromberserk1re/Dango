@@ -385,3 +385,18 @@ body,body * { -webkit-text-stroke:.14px currentColor; }
 .lane { clip-path: inset(0 0 0 -8px); }
 #previewCanvas { clip-path: inset(0); }
 .effect-keyframes { overflow: hidden; }
+
+/* Larger source previews make the Media shelf scannable; attached effects are
+   marked on their owning media clip instead of taking up timeline lanes. */
+.media-item { min-height:58px; gap:10px; padding:6px; border:1px solid rgba(194,166,187,.2); background:rgba(255,253,255,.36); }
+.media-item:hover { border-color:rgba(194,126,171,.4); background:#fff7fc; }
+.media-thumb { flex:0 0 72px; width:72px; height:44px; border:1px solid rgba(137,117,137,.22); border-radius:6px; background-size:cover; background-position:center; box-shadow:0 1px 3px rgba(74,55,70,.12); }
+.media-item > span:last-child { min-width:0; }
+.media-item strong { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; }
+.media-item small { display:block; margin-top:3px; font-size:9px; }
+.media-thumb.audio-thumb { display:grid; place-items:center; }
+.clip-fx-badge { position:absolute; z-index:7; top:4px; right:5px; padding:2px 5px; border:1px solid #d7b735; border-radius:5px; background:#ffe45e; box-shadow:0 1px 3px rgba(79,61,23,.2); color:#59470c; font-size:9px; font-weight:900; line-height:1.2; cursor:pointer; }
+.clip-fx-badge:hover { background:#ffed8e; transform:translateY(-1px); }
+.clip-fx-badge:focus-visible { outline:2px solid #bd8e12; outline-offset:1px; }
+.clip:has(.clip-fx-badge) .clip-overlap-badge { right:52px; }
+.clip .clip-title { max-width:calc(100% - 54px); }
