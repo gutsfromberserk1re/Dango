@@ -411,7 +411,11 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         } else {
             let offset = clip["sourceOffset"].as_f64().unwrap_or(0.0);
             if offset > 0.0 { command.arg("-ss").arg(offset.to_string()); }
-            command.arg("-t").arg(clip_duration.to_string());
+            let speed_ceiling = clip["keys"].as_array().into_iter().flatten()
+                .filter_map(|key| key["controls"]["speed"].as_f64())
+                .fold(clip["controls"]["speed"].as_f64().unwrap_or(100.0), f64::max)
+                .clamp(10.0, 400.0);
+            command.arg("-t").arg((clip_duration * (speed_ceiling / 100.0).max(1.0)).to_string());
         }
         command.arg("-i").arg(source);
         if clip["kind"] == "video" && clip["hasAudio"].as_bool().or_else(|| clip["has_audio"].as_bool()).unwrap_or(false) {
@@ -455,11 +459,17 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         let x = control_expression(clip, "positionX", 0.0, "t", start);
         let y = control_expression(clip, "positionY", 0.0, "t", start);
         let rotation = control_expression(clip, "rotation", 0.0, "t", 0.0);
+        let speed = if clip["kind"] == "video" {
+            format!("clip(({}),10,400)", control_expression(clip, "speed", 100.0, "t", 0.0))
+        } else {
+            "100.0".to_string()
+        };
         // Keyframe expressions use if(...,...,...); quote them so FFmpeg keeps commas inside scale expressions.
         let filters = vec![
             format!("scale={width}:{height}:force_original_aspect_ratio=decrease"),
             format!("scale='iw*({scale})/100':'ih*({scale})/100':eval=frame"),
             format!("rotate='({rotation})*PI/180':ow=rotw(iw):oh=roth(ih):c=none"),
+            format!("setpts='PTS*100/({speed})'"),
         ];
         let effect_steps = media_effect_steps(clips, clip, RenderCfg { fps: 30.0, height: height as f64 });
         let effect_input = format!("fxin{index}");

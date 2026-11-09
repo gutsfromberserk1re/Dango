@@ -456,6 +456,47 @@ fn has_clip_color_keys(clip: &Value, name: &str, fallback: f64) -> bool {
     }))
 }
 
+fn grade_channel_expression(clip: &Value, channel: &str, fps: f64) -> String {
+    let control = |name: &str, fallback: f64| clip_color_expression(clip, name, fallback, fps, "T");
+    let source = match channel { "r" => "r(X,Y)", "g" => "g(X,Y)", _ => "b(X,Y)" };
+    let temperature = control("temperature", 0.0);
+    let tint = control("tint", 0.0);
+    let exposure = control("exposure", 0.0);
+    let highlights = control("highlights", 0.0);
+    let shadows = control("shadows", 0.0);
+    let whites = control("whites", 0.0);
+    let blacks = control("blacks", 0.0);
+    let shadow_hue = control("shadowTintHue", 225.0);
+    let shadow_amount = control("shadowTintAmount", 0.0);
+    let highlight_hue = control("highlightTintHue", 45.0);
+    let highlight_amount = control("highlightTintAmount", 0.0);
+    let curve1 = control("curve1", 25.0);
+    let curve2 = control("curve2", 50.0);
+    let curve3 = control("curve3", 75.0);
+    let luma = "((0.2126*r(X,Y)+0.7152*g(X,Y)+0.0722*b(X,Y))/255)";
+    let shadow_weight = format!("pow(1-({luma}),2)");
+    let highlight_weight = format!("pow(({luma}),2)");
+    let white_weight = format!("pow(max((({luma})-0.72)/0.28,0),2)");
+    let black_weight = format!("pow(max((0.28-({luma}))/0.28,0),2)");
+    let angle_offset = match channel { "g" => -120.0, "b" => 120.0, _ => 0.0 };
+    let wb = match channel {
+        "r" => format!("({temperature})*0.28-({tint})*0.08"),
+        "g" => format!("({tint})*0.20"),
+        _ => format!("-({temperature})*0.28-({tint})*0.08"),
+    };
+    let shadow_color = format!("cos((({shadow_hue})+({angle_offset}))*PI/180)");
+    let highlight_color = format!("cos((({highlight_hue})+({angle_offset}))*PI/180)");
+    let adjusted = format!(
+        "clip(({source})*pow(2,({exposure}))+({wb})+({shadows})*({shadow_weight})*0.38+({highlights})*({highlight_weight})*0.38+({blacks})*({black_weight})*0.3+({whites})*({white_weight})*0.3+({shadow_amount})/100*({shadow_weight})*({shadow_color})*38+({highlight_amount})/100*({highlight_weight})*({highlight_color})*38,0,255)"
+    );
+    let y1 = format!("(({curve1})*2.55)");
+    let y2 = format!("(({curve2})*2.55)");
+    let y3 = format!("(({curve3})*2.55)");
+    format!(
+        "if(lt(({adjusted}),63.75),({adjusted})*{y1}/63.75,if(lt(({adjusted}),127.5),{y1}+({y2}-{y1})*((({adjusted})-63.75)/63.75),if(lt(({adjusted}),191.25),{y2}+({y3}-{y2})*((({adjusted})-127.5)/63.75),{y3}+(255-{y3})*((({adjusted})-191.25)/63.75))))"
+    )
+}
+
 pub fn media_effect_steps(clips: &[Value], clip: &Value, cfg: RenderCfg) -> Vec<Step> {
     let cfg = RenderCfg {
         fps: if cfg.fps > 0.0 { cfg.fps } else { 30.0 },
@@ -470,23 +511,44 @@ pub fn media_effect_steps(clips: &[Value], clip: &Value, cfg: RenderCfg) -> Vec<
     if !color.is_null() {
         let hue = clip_color_expression(clip, "hue", 0.0, cfg.fps, "t");
         let saturation = clip_color_expression(clip, "saturation", 100.0, cfg.fps, "t");
+        let hsl_saturation = clip_color_expression(clip, "hslSaturation", 100.0, cfg.fps, "t");
         let lightness = clip_color_expression(clip, "lightness", 0.0, cfg.fps, "t");
         let brightness = clip_color_expression(clip, "brightness", 0.0, cfg.fps, "t");
         let contrast = clip_color_expression(clip, "contrast", 100.0, cfg.fps, "t");
         let sharpness = clip_color_expression(clip, "sharpness", 0.0, cfg.fps, "T");
         if color["hue"].as_f64().unwrap_or(0.0).abs() > 0.001
             || (color["saturation"].as_f64().unwrap_or(100.0) - 100.0).abs() > 0.001
-            || has_clip_color_keys(clip, "hue", 0.0) || has_clip_color_keys(clip, "saturation", 100.0) {
+            || (color["hslSaturation"].as_f64().unwrap_or(100.0) - 100.0).abs() > 0.001
+            || has_clip_color_keys(clip, "hue", 0.0) || has_clip_color_keys(clip, "saturation", 100.0)
+            || has_clip_color_keys(clip, "hslSaturation", 100.0) {
             steps.push(Step::Chain(format!(
-                "hue=h='clip(({hue}),-180,180)':s='clip(({saturation})/100,0,2)':eval=frame"
+                "hue=h='clip(({hue}),-180,180)':s='clip(({saturation})*({hsl_saturation})/10000,0,2)':eval=frame"
             )));
         }
         if color["brightness"].as_f64().unwrap_or(0.0).abs() > 0.001
             || color["lightness"].as_f64().unwrap_or(0.0).abs() > 0.001
             || (color["contrast"].as_f64().unwrap_or(100.0) - 100.0).abs() > 0.001
-            || has_clip_color_keys(clip, "brightness", 0.0) || has_clip_color_keys(clip, "lightness", 0.0) || has_clip_color_keys(clip, "contrast", 100.0) {
+            || has_clip_color_keys(clip, "brightness", 0.0) || has_clip_color_keys(clip, "lightness", 0.0)
+            || has_clip_color_keys(clip, "contrast", 100.0) {
             steps.push(Step::Chain(format!(
                 "eq=brightness='clip((({brightness})+({lightness}))/100,-1,1)':contrast='clip(({contrast})/100,0,2)':eval=frame"
+            )));
+        }
+        let advanced = [
+            ("temperature", 0.0), ("tint", 0.0), ("exposure", 0.0),
+            ("highlights", 0.0), ("shadows", 0.0), ("whites", 0.0), ("blacks", 0.0),
+            ("shadowTintAmount", 0.0), ("highlightTintAmount", 0.0),
+            ("curve1", 25.0), ("curve2", 50.0), ("curve3", 75.0),
+        ].iter().any(|(name, fallback)| {
+            (color[*name].as_f64().unwrap_or(*fallback) - *fallback).abs() > 0.001
+                || has_clip_color_keys(clip, name, *fallback)
+        });
+        if advanced {
+            let red = grade_channel_expression(clip, "r", cfg.fps);
+            let green = grade_channel_expression(clip, "g", cfg.fps);
+            let blue = grade_channel_expression(clip, "b", cfg.fps);
+            steps.push(Step::Chain(format!(
+                "format=gbrap,geq=r='{red}':g='{green}':b='{blue}':a='alpha(X,Y)'"
             )));
         }
         if color["sharpness"].as_f64().unwrap_or(0.0) > 0.001 || has_clip_color_keys(clip, "sharpness", 0.0) {
@@ -499,7 +561,6 @@ pub fn media_effect_steps(clips: &[Value], clip: &Value, cfg: RenderCfg) -> Vec<
             });
         }
     }
-
     let mut in_rgba = false;
 
     for effect in clips.iter().filter(|item| item["kind"] == "effect") {
