@@ -69,6 +69,10 @@ fn default_value(effect: &Value, name: &str) -> f64 {
     match name {
         "offset" => 8.0,
         "intensity" if effect["effectName"] == "Fade" || effect["effectName"] == "Cross dissolve" => 100.0,
+        "wavelength" => 80.0,
+        "waveSpeed" => 4.0,
+        "glowThreshold" if effect["effectName"] == "Soft glow" => 0.35,
+        "glowRadius" if effect["effectName"] == "Soft glow" => 6.0,
         _ => 50.0,
     }
 }
@@ -188,28 +192,16 @@ fn fade_filter(ctx: &EffectCtx, fade_start: f64, fade_end: f64) -> String {
     )
 }
 
-fn swirl_filter(ctx: &EffectCtx) -> String {
-    let twist = format!("({}*4.0)", ctx.amount("T"));
-    let radius = ctx.num("swirlRadius", 0.6, 0.1, 1.5);
-    let prelude = format!(
-        "st(0,X-W/2);st(1,Y-H/2);st(2,hypot(ld(0),ld(1)));\
-         st(3,clip(1-ld(2)/(min(W,H)*{radius:.4}),0,1));\
-         st(4,atan2(ld(1),ld(0))-{twist}*ld(3)*ld(3));\
-         st(5,W/2+ld(2)*cos(ld(4)));st(6,H/2+ld(2)*sin(ld(4)));"
-    );
-    geq_filter(&remap_exprs(&prelude, "ld(5)", "ld(6)"), "bilinear", &ctx.enable)
-}
-
-fn wave_filter(ctx: &EffectCtx) -> String {
+fn sine_wave_filter(ctx: &EffectCtx) -> String {
     let amount = ctx.amount("T");
-    let wavelength = ctx.num("wavelength", 80.0, 8.0, 240.0);
-    let speed = ctx.num("waveSpeed", 4.0, 0.0, 10.0);
+    let wavelength = ctx.param("wavelength", "T");
+    let speed = ctx.param("waveSpeed", "T");
     let vertical = ctx.effect["waveDirection"].as_str() == Some("vertical");
     let shift = ctx.shift;
     let (major, x, y) = if vertical { ("X", "X", "(Y+ld(1))") } else { ("Y", "(X+ld(1))", "Y") };
     let prelude = format!(
         "st(0,H/1080);\
-         st(1,{amount}*18*ld(0)*sin(({major}/({wavelength:.3}*ld(0)))*2*PI+(T+({shift:.4}))*{speed:.3}));"
+         st(1,{amount}*18*ld(0)*sin(({major}/(clip({wavelength},8,240)*ld(0)))*2*PI+(T+({shift:.4}))*clip({speed},0,10)));"
     );
     geq_filter(&remap_exprs(&prelude, x, y), "bilinear", &ctx.enable)
 }
@@ -323,9 +315,9 @@ fn strobe_filter(ctx: &EffectCtx) -> String {
 /// Real glow: bright-pass -> gaussian blur -> screen-blended over the original.
 /// Done in 8-bit planar RGB so screen is applied to colour, not to YUV chroma.
 fn glow_step(ctx: &EffectCtx, name: &str) -> Step {
-    let (default_threshold, default_radius) = if name == "Bloom" { (0.6, 3.0) } else { (0.0, 1.5) };
+    let (default_threshold, default_radius) = if name == "Bloom" { (0.6, 3.0) } else { (0.35, 6.0) };
     let threshold = ctx.num("glowThreshold", default_threshold, 0.0, 0.95);
-    let radius_pct = ctx.num("glowRadius", default_radius, 0.2, 10.0);
+    let radius_pct = ctx.num("glowRadius", default_radius, 0.2, 15.0);
     let sigma = (radius_pct / 100.0 * ctx.cfg.height).clamp(1.0, 300.0);
 
     let mut branch = Vec::new();
@@ -607,14 +599,13 @@ pub fn media_effect_steps(clips: &[Value], clip: &Value, cfg: RenderCfg) -> Vec<
                 in_rgba = false;
                 steps.push(glow_step(&ctx, name));
             }
-            "Swirl" | "Wave" | "Chromatic Aberration" | "Glitch" | "Pixelate" | "Mirror" | "Shake" | "Scanlines" => {
+            "Sine Wave" | "Chromatic Aberration" | "Glitch" | "Pixelate" | "Mirror" | "Shake" | "Scanlines" => {
                 if !in_rgba {
                     steps.push(Step::Chain("format=rgba".into()));
                     in_rgba = true;
                 }
                 steps.push(Step::Chain(match name {
-                    "Swirl" => swirl_filter(&ctx),
-                    "Wave" => wave_filter(&ctx),
+                    "Sine Wave" => sine_wave_filter(&ctx),
                     "Glitch" => glitch_filter(&ctx),
                     "Pixelate" => pixelate_filter(&ctx),
                     "Mirror" => mirror_filter(&ctx),

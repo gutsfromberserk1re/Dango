@@ -1,8 +1,7 @@
 export const effects = [
   ['Fade', 'Black fade in/out', '◐'],
   ['Cross dissolve', 'Blend across a cut', '◫'],
-  ['Swirl', 'Radial vortex distortion', '◉'],
-  ['Wave', 'Adjustable sine wave distortion', '≋'],
+  ['Sine Wave', 'Animated sine wave distortion', '≋'],
   ['Blur', 'Soft focus blur', '◌'],
   ['Soft glow', 'Dreamy highlights', '✦'],
   ['Warm film', 'Golden color tone', '☼'],
@@ -20,7 +19,9 @@ export const chromaticPalettes = {
 };
 
 export function effectKeyframeProperties(effect) {
-  return effect.effectName === 'Chromatic Aberration' ? ['intensity', 'offset'] : ['intensity'];
+  if (effect.effectName === 'Chromatic Aberration') return ['intensity', 'offset'];
+  if (effect.effectName === 'Sine Wave') return ['intensity', 'wavelength', 'waveSpeed'];
+  return ['intensity'];
 }
 
 export function chromaticColors(effect) {
@@ -85,7 +86,7 @@ export function setEffectIntensityAt(effect, time, value) {
   return setEffectValueAt(effect, time, 'intensity', value);
 }
 
-export function createDisplacementMap(kind, width, height, wavelength = 80, phase = 0) {
+export function createSineWaveDisplacementMap(width, height, wavelength = 80, phase = 0, direction = 'horizontal') {
   const mapWidth = 192;
   const mapHeight = Math.max(16, Math.min(256, Math.round(mapWidth * height / Math.max(1, width))));
   const canvas = document.createElement('canvas');
@@ -94,20 +95,14 @@ export function createDisplacementMap(kind, width, height, wavelength = 80, phas
   const context = canvas.getContext('2d');
   const image = context.createImageData(mapWidth, mapHeight);
   const unit = Math.max(1, Math.min(width, height));
-  const cx = width / 2, cy = height / 2;
   for (let y = 0; y < mapHeight; y++) for (let x = 0; x < mapWidth; x++) {
     const px = x / (mapWidth - 1) * width;
     const py = y / (mapHeight - 1) * height;
     let dx = 0, dy = 0;
-    if (kind === 'swirl') {
-      const rx = px - cx, ry = py - cy;
-      const radius = Math.hypot(rx, ry);
-      const angle = 2.8 * Math.exp(-radius / (unit * .45));
-      dx = rx * Math.cos(angle) - ry * Math.sin(angle) - rx;
-      dy = rx * Math.sin(angle) + ry * Math.cos(angle) - ry;
-    } else {
-      dx = Math.sin(py * Math.PI * 2 / Math.max(1, wavelength) + phase) * unit * .018;
-    }
+    const phasePosition = direction === 'vertical' ? px : py;
+    const displacement = Math.sin(phasePosition * Math.PI * 2 / Math.max(1, wavelength) + phase) * unit * .05;
+    if (direction === 'vertical') dy = displacement;
+    else dx = displacement;
     const offset = (y * mapWidth + x) * 4;
     image.data[offset] = Math.max(0, Math.min(255, 128 + dx / unit * 255));
     image.data[offset + 1] = Math.max(0, Math.min(255, 128 + dy / unit * 255));
