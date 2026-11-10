@@ -287,15 +287,24 @@ fn save_project(
     app: tauri::AppHandle,
     contents: String,
     path: Option<String>,
+    suggested_name: Option<String>,
 ) -> Result<Option<String>, String> {
-    let path = match path {
+    let mut path = match path {
         Some(path) if !path.is_empty() => PathBuf::from(path),
         _ => {
+            let suggested_name = suggested_name
+                .and_then(|name| {
+                    PathBuf::from(name)
+                        .file_name()
+                        .and_then(|value| value.to_str().map(|value| value.to_string()))
+                })
+                .filter(|name| !name.is_empty())
+                .unwrap_or_else(|| "Untitled project.dango".to_string());
             let Some(path) = app
                 .dialog()
                 .file()
                 .add_filter("Dango project", &["dango"])
-                .set_file_name("Untitled.dango")
+                .set_file_name(suggested_name.as_str())
                 .blocking_save_file()
             else {
                 return Ok(None);
@@ -303,6 +312,14 @@ fn save_project(
             path.into_path().map_err(|error| error.to_string())?
         }
     };
+
+    if !path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map_or(false, |extension| extension.eq_ignore_ascii_case("dango"))
+    {
+        path.set_extension("dango");
+    }
 
     fs::write(&path, contents).map_err(|error| error.to_string())?;
     Ok(Some(path.to_string_lossy().to_string()))
@@ -325,6 +342,23 @@ fn open_project(app: tauri::AppHandle) -> Result<Option<ProjectDocument>, String
         path: path.to_string_lossy().to_string(),
         contents,
     }))
+}
+
+#[tauri::command]
+fn read_project_at(path: String) -> Result<ProjectDocument, String> {
+    let path = PathBuf::from(path);
+    if !path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map_or(false, |extension| extension.eq_ignore_ascii_case("dango"))
+    {
+        return Err("Only Dango project files can be opened from Recents".into());
+    }
+    let contents = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+    Ok(ProjectDocument {
+        path: path.to_string_lossy().to_string(),
+        contents,
+    })
 }
 
 #[tauri::command]
@@ -596,6 +630,7 @@ fn main() {
             generate_thumbnail,
             save_project,
             open_project,
+            read_project_at,
             export_video,
             window_action
         ])

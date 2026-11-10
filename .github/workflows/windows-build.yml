@@ -56,22 +56,15 @@ jobs:
         run: node -e "const fs=require('fs'); for(const file of ['package.json','src-tauri/tauri.conf.json','src-tauri/capabilities/default.json']) JSON.parse(fs.readFileSync(file,'utf8'))"
       - name: Install frontend tooling
         run: npm install
-      - name: Build Tauri app
-        run: npm run tauri -- build --no-bundle
-      - name: Assemble portable app
+      - name: Prepare cream installer artwork
         shell: pwsh
-        run: |
-          $app = Join-Path $PWD 'dist/Dango'
-          New-Item -ItemType Directory -Force -Path $app, (Join-Path $app 'fonts') | Out-Null
-          Copy-Item -LiteralPath 'src-tauri/target/release/dango.exe' -Destination (Join-Path $app 'Dango.exe')
-          Copy-Item -LiteralPath '.ffmpeg-cache/ffmpeg.exe' -Destination $app
-          Copy-Item -LiteralPath '.ffmpeg-cache/ffprobe.exe' -Destination $app
-          Copy-Item -LiteralPath 'frontend/fonts/ChunkypufflyRegular.otf' -Destination (Join-Path $app 'fonts/ChunkypufflyRegular.otf')
-          if (Test-Path '.ffmpeg-cache/FFmpeg-LICENSE.txt') { Copy-Item -LiteralPath '.ffmpeg-cache/FFmpeg-LICENSE.txt' -Destination $app }
-          @('Dango portable build','FFmpeg is included for import, thumbnails, and export.','FFmpeg source and license: https://github.com/BtbN/FFmpeg-Builds') | Set-Content -LiteralPath (Join-Path $app 'README.txt')
-      - uses: actions/upload-artifact@v4
+        run: ./scripts/create-installer-art.ps1
+      - name: Build Dango MSI installer
+        run: npm run tauri -- build --bundles msi
+      - name: Upload the MSI installer
+        uses: actions/upload-artifact@v4
         with:
-          name: Dango-windows-x64
-          path: dist/Dango/**
+          name: Dango-windows-x64-msi
+          path: src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: error
           retention-days: 14

@@ -33,10 +33,18 @@
   "bundle": {
     "active": true,
     "targets": [
-      "nsis"
+      "msi"
     ],
     "resources": {
-      "../frontend/fonts/ChunkypufflyRegular.otf": "fonts/ChunkypufflyRegular.otf"
+      "../frontend/fonts/ChunkypufflyRegular.otf": "fonts/ChunkypufflyRegular.otf",
+      "../.ffmpeg-cache/ffmpeg.exe": "ffmpeg/ffmpeg.exe",
+      "../.ffmpeg-cache/ffprobe.exe": "ffmpeg/ffprobe.exe"
+    },
+    "windows": {
+      "wix": {
+        "dialogImagePath": "windows/installer-dialog.bmp",
+        "bannerPath": "windows/installer-banner.bmp"
+      }
     },
     "icon": [
       "../icons/Dango.ico"
