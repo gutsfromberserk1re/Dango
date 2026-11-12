@@ -674,3 +674,55 @@ body.dark-theme .app.modern-layout .toolrail .tool.active { background:#493849; 
   .modern-transform-grid { grid-template-columns:minmax(0,1fr); }
   .modern-transform-field.transform-size { grid-column:auto; }
 }
+
+/* Keep the custom controls in the selected light or dark app theme. */
+.app.modern-layout.experimental-modern-controls .inspector .tab img { filter:none; }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .inspector { background:rgba(255,251,243,.94); border-color:rgba(255,255,255,.76); box-shadow:var(--shadow); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .inspector-body,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .inspector .tabs { background:rgba(255,251,243,.94); color:var(--ink); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .inspector .tabs { border-left-color:var(--line); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .inspector .tab.active { background:#f6e8f2; }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .inspector-body .section-title,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .inspector-body .selected-name { color:var(--ink); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .inspector-body .selected-name { color:var(--muted); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-transform-card,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-control-card,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-crop-tools { border-color:var(--line); background:var(--panel); color:var(--ink); box-shadow:0 3px 9px rgba(70,48,67,.06); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-transform-heading,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card > h3 { color:var(--ink); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-transform-field { border-color:var(--line); background:#fff9fd; }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-transform-field-head label,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-crop-field,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-crop-tools summary { color:var(--ink); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-reset-all,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-reset-control,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-crop-reset { border-color:var(--line); background:#fff8fc; color:#76516e; }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-reset-all:hover,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-reset-control:hover,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-crop-reset:hover { border-color:#d49bc3; background:#f8eaf5; color:#704d67; }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-crop-field input { border-color:var(--line); background:#fff; color:var(--ink); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .control-row { border-color:var(--line); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .control-head label,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .control-value,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .color-wheel-heading { color:var(--ink); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .reset { color:#9b5d8a; }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .color-wheel-card { border-color:var(--line); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .color-wheel { background:radial-gradient(circle,var(--panel) 0 13%,transparent 14%),conic-gradient(#ff3b30,#ffcf33,#46d24a,#2dcbe8,#3c64f5,#d52de8,#ff3b30); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .color-wheel-amount { color:var(--muted); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .color-curve-canvas { border-color:var(--line); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .keyframe-controls .keyframe-add { border-color:var(--line); background:#fff8fc; color:#76516e; }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .effect-card { border-color:var(--line); background:#fffdfef2; }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .effect-card:hover { background:#f8eaf5; }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .effect-card strong,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .effect-control-heading h3 { color:var(--ink); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .effect-card small { color:var(--muted); }
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .media-search,
+body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .media-item { border-color:var(--line); background:#fffdfef2; color:var(--ink); }
+.modern-scrub-value { min-width:58px; padding:4px 7px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink); font:inherit; font-size:10px; font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; cursor:ew-resize; touch-action:none; user-select:none; -webkit-user-select:none; }
+.modern-scrub-value:hover,.modern-scrub-value:focus-visible { border-color:var(--accent); outline:none; box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent); }
+.modern-scrub-value:active { cursor:grabbing; }
+.modern-color-control-row .control-head { align-items:center; gap:7px; }
+.modern-color-control-row .control-head label { flex:1; }
+.modern-color-control-row .reset { flex:none; }
+body.dark-theme .app.modern-layout.experimental-modern-controls .modern-scrub-value { border-color:#373737; background:#282828; color:#f0edf0; }
+body.dark-theme .app.modern-layout.experimental-modern-controls .modern-color-control-row .control-head label { color:#c9c3cb; }
