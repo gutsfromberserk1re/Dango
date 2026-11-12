@@ -325,6 +325,36 @@ fn save_project(
     Ok(Some(path.to_string_lossy().to_string()))
 }
 
+fn safe_project_component(value: &str, limit: usize) -> String {
+    value.chars()
+        .filter(|character| character.is_ascii_alphanumeric() || *character == '-' || *character == '_')
+        .take(limit)
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string()
+}
+
+#[tauri::command]
+fn autosave_project(
+    app: tauri::AppHandle,
+    contents: String,
+    project_id: String,
+    project_name: String,
+) -> Result<String, String> {
+    let projects = app.path().app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join("Projects");
+    fs::create_dir_all(&projects).map_err(|error| error.to_string())?;
+
+    let project_id = safe_project_component(&project_id, 64);
+    let project_id = if project_id.is_empty() { "project".to_string() } else { project_id };
+    let project_name = safe_project_component(&project_name.replace(' ', "_"), 80);
+    let project_name = if project_name.is_empty() { "Untitled_project".to_string() } else { project_name };
+    let path = projects.join(format!("{project_name}-{project_id}.dango"));
+    fs::write(&path, contents).map_err(|error| error.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
 #[tauri::command]
 fn open_project(app: tauri::AppHandle) -> Result<Option<ProjectDocument>, String> {
     let Some(path) = app
@@ -499,18 +529,30 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
             "100.0".to_string()
         };
         // Keyframe expressions use if(...,...,...); quote them so FFmpeg keeps commas inside scale expressions.
-        let filters = vec![
+        let crop_left = clip["crop"]["left"].as_f64().unwrap_or(0.0).clamp(0.0, 45.0) / 100.0;
+        let crop_right = clip["crop"]["right"].as_f64().unwrap_or(0.0).clamp(0.0, 45.0) / 100.0;
+        let crop_top = clip["crop"]["top"].as_f64().unwrap_or(0.0).clamp(0.0, 45.0) / 100.0;
+        let crop_bottom = clip["crop"]["bottom"].as_f64().unwrap_or(0.0).clamp(0.0, 45.0) / 100.0;
+        let mut filters = Vec::new();
+        if crop_left + crop_right + crop_top + crop_bottom > 0.0001 {
+            filters.push(format!(
+                "crop=w='max(2,iw*{:.6})':h='max(2,ih*{:.6})':x='iw*{crop_left:.6}':y='ih*{crop_top:.6}'",
+                1.0 - crop_left - crop_right,
+                1.0 - crop_top - crop_bottom,
+            ));
+        }
+        filters.extend([
             format!("scale={width}:{height}:force_original_aspect_ratio=decrease"),
             format!("scale='iw*({scale})/100':'ih*({scale})/100':eval=frame"),
             format!("rotate='({rotation})*PI/180':ow=rotw(iw):oh=roth(ih):c=none"),
             format!("setpts='PTS*100/({speed})'"),
-        ];
+        ]);
         let effect_steps = media_effect_steps(clips, clip, RenderCfg { fps: 30.0, height: height as f64 });
         let effect_input = format!("fxin{index}");
         let effect_output = format!("fxout{index}");
         let effect_graph = render_filtergraph(&effect_steps, &effect_input, &effect_output, &format!("fx{index}"));
         let next = format!("base{}", index + 1);
-        graph.push_str(&format!(";[{index}:v]setpts=PTS-STARTPTS,{}[{effect_input}];{effect_graph};[{effect_output}]format=rgba,geq=a='alpha(X,Y)*({opacity})/100',setsar=1,setpts=PTS-STARTPTS,split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]crop=w='min(iw,{width})':h='min(ih,{height})',pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p,fps=30,settb=expr=1/30[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(",")));
+        graph.push_str(&format!(";[{index}:v]setpts=PTS-STARTPTS,{}[{effect_input}];{effect_graph};[{effect_output}]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='alpha(X,Y)*({opacity})/100',setsar=1,setpts=PTS-STARTPTS,split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]crop=w='min(iw,{width})':h='min(ih,{height})',pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p,fps=30,settb=expr=1/30[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(",")));
         last = next;
     }
 
@@ -625,10 +667,16 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let projects = app.path().app_data_dir()?.join("Projects");
+            fs::create_dir_all(projects)?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             import_media,
             generate_thumbnail,
             save_project,
+            autosave_project,
             open_project,
             read_project_at,
             export_video,
