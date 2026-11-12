@@ -1063,3 +1063,15 @@ body.dark-theme.theme-grass .timeline-tools button:hover,body.dark-theme.theme-g
 body.dark-theme.theme-grass .keyframe-add:hover,body.dark-theme.theme-grass .quiet-button:hover { border-color:#35b96b; background:#203126; }
 body.dark-theme.theme-grass .startup-choice { border-color:#34453a; background:#18231c; color:var(--ink); }
 body.dark-theme.theme-grass .startup-choice:hover { border-color:#35b96b; background:#203126; }
+
+/* The modern tool strip hugs its controls instead of filling the whole row. */
+.app.modern-layout .toolrail {
+  justify-self:start; align-self:center; width:max-content; max-width:100%; height:40px;
+  padding:1px 10px; border:1px solid var(--line); border-radius:999px;
+  background:var(--panel); box-shadow:var(--shadow);
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+}
+body.dark-theme.theme-lapis .timecode,body.dark-theme.theme-grass .timecode,
+body.dark-theme.theme-lapis .timecode i,body.dark-theme.theme-grass .timecode i,
+body.dark-theme.theme-lapis .ticks,body.dark-theme.theme-grass .ticks,
+body.dark-theme.theme-lapis .ticks span,body.dark-theme.theme-grass .ticks span { color:#fff !important; }
