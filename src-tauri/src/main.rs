@@ -31,14 +31,33 @@ async fn import_media(app: tauri::AppHandle) -> Result<Option<MediaInfo>, String
     let Some(path) = app
         .dialog()
         .file()
-        .add_filter("Media", &["mp4", "mov", "mkv", "avi", "webm", "wav", "mp3", "m4a", "png", "jpg", "jpeg", "gif", "bmp", "webp"])
+        .add_filter("Media", &["mp4", "mov", "mkv", "avi", "webm", "m4v", "mpeg", "mpg", "flv", "wav", "mp3", "m4a", "aac", "flac", "ogg", "png", "jpg", "jpeg", "gif", "bmp", "webp"])
         .blocking_pick_file()
     else {
         return Ok(None);
     };
 
     let path: PathBuf = path.into_path().map_err(|error| error.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || inspect_media(&app, path))
+        .await
+        .map_err(|error| error.to_string())?
+        .map(Some)
+}
+
+#[tauri::command]
+async fn import_media_paths(paths: Vec<String>, app: tauri::AppHandle) -> Result<Vec<MediaInfo>, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        paths.into_iter().map(|raw_path| {
+            let path = PathBuf::from(raw_path);
+            if !path.is_file() {
+                return Err(format!("File not found: {}", path.display()));
+            }
+            inspect_media(&app, path)
+        }).collect()
+    }).await.map_err(|error| error.to_string())?
+}
+
+fn inspect_media(app: &tauri::AppHandle, path: PathBuf) -> Result<MediaInfo, String> {
     let path_string = path.to_string_lossy().to_string();
     let extension = path
         .extension()
@@ -47,10 +66,12 @@ async fn import_media(app: tauri::AppHandle) -> Result<Option<MediaInfo>, String
         .to_ascii_lowercase();
     let kind = if ["png", "jpg", "jpeg", "gif", "bmp", "webp"].contains(&extension.as_str()) {
         "image"
-    } else if ["wav", "mp3", "m4a"].contains(&extension.as_str()) {
+    } else if ["wav", "mp3", "m4a", "aac", "flac", "ogg"].contains(&extension.as_str()) {
         "audio"
-    } else {
+    } else if ["mp4", "mov", "mkv", "avi", "webm", "m4v", "mpeg", "mpg", "flv"].contains(&extension.as_str()) {
         "video"
+    } else {
+        return Err(format!("Unsupported media file: {}", path.display()));
     };
     if kind == "image" {
         let name = path
@@ -58,16 +79,16 @@ async fn import_media(app: tauri::AppHandle) -> Result<Option<MediaInfo>, String
             .and_then(|name| name.to_str())
             .unwrap_or("Image")
             .to_string();
-        return Ok(Some(MediaInfo {
+        return Ok(MediaInfo {
             path: path_string,
             name,
             duration: 5.0,
             has_audio: false,
             kind: kind.to_string(),
-            thumbnail: make_thumbnail_data(&app, &path).ok().flatten(),
-        }));
+            thumbnail: make_thumbnail_data(app, &path).ok().flatten(),
+        });
     }
-    let probe = Command::new(multimedia_tool(&app, "ffprobe"))
+    let probe = Command::new(multimedia_tool(app, "ffprobe"))
         .args([
             "-v",
             "error",
@@ -99,15 +120,14 @@ async fn import_media(app: tauri::AppHandle) -> Result<Option<MediaInfo>, String
         .unwrap_or("Media")
         .to_string();
 
-    Ok(Some(MediaInfo {
+    Ok(MediaInfo {
         path: path_string,
         name,
         duration,
         has_audio,
         kind: kind.to_string(),
-        thumbnail: make_thumbnail_data(&app, &path).ok().flatten(),
-    }))
-    }).await.map_err(|error| error.to_string())?
+        thumbnail: make_thumbnail_data(app, &path).ok().flatten(),
+    })
 }
 
 fn multimedia_tool(app: &tauri::AppHandle, tool: &str) -> PathBuf {
@@ -674,6 +694,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             import_media,
+            import_media_paths,
             generate_thumbnail,
             save_project,
             autosave_project,
