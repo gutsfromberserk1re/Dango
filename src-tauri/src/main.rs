@@ -458,11 +458,16 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
     let mut quality_parts = quality.split('-');
     let resolution = quality_parts.next().unwrap_or("720");
     let quality_level = quality_parts.next().unwrap_or("medium");
-    let (width, height) = match resolution {
-        "480" => (854, 480),
-        "1080" => (1920, 1080),
-        _ => (1280, 720),
+    let height = match resolution {
+        "480" => 480,
+        "1080" => 1080,
+        _ => 720,
     };
+    let project_width = project["projectWidth"].as_f64().unwrap_or(16.0);
+    let project_height = project["projectHeight"].as_f64().unwrap_or(9.0).max(1.0);
+    let aspect = (project_width / project_height).clamp(0.25, 4.0);
+    let raw_width = (height as f64 * aspect).round() as i32;
+    let width = (raw_width.max(2) + raw_width.max(2) % 2);
     let mut visual: Vec<&Value> = clips.iter().filter(|clip| {
         matches!(clip["kind"].as_str(), Some("video" | "image"))
             && clip["titleText"].is_null()

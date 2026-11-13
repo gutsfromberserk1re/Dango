@@ -1107,3 +1107,38 @@ body .app .clip.effect-drop-target { outline:2px solid var(--accent); outline-of
 .app.modern-layout.experimental-modern-controls .modern-crop-field { color:var(--ink); }
 .app.modern-layout.experimental-modern-controls .modern-scrub-value.modern-crop-scrub { border-color:var(--line); background:color-mix(in srgb,var(--panel) 94%,var(--accent) 6%); color:var(--ink); }
 .app.modern-layout.experimental-modern-controls .modern-scrub-editor { color:var(--ink); }
+
+/* Modern controls: compact Premiere-style value scrubbing. */
+.app.modern-layout.experimental-modern-controls .modern-scrub-value {
+  position:relative; min-width:58px; padding:3px 2px 5px; border:0; border-radius:0;
+  border-bottom:1px solid color-mix(in srgb,var(--ink) 38%,transparent); background:transparent;
+  box-shadow:none; text-align:right; cursor:ew-resize;
+}
+.app.modern-layout.experimental-modern-controls .modern-scrub-value::after {
+  content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px;
+  background:var(--accent); transform:scaleX(0); transform-origin:left; opacity:0;
+  transition:transform .12s ease,opacity .12s ease;
+}
+.app.modern-layout.experimental-modern-controls .modern-scrub-value.scrubbing::after { transform:scaleX(var(--scrub-progress,0)); opacity:1; }
+.app.modern-layout.experimental-modern-controls .modern-transform-field .modern-transform-slider { display:none; }
+.app.modern-layout.experimental-modern-controls .modern-transform-field .degree-range { display:block; margin-top:5px; }
+.app.modern-layout.experimental-modern-controls .modern-transform-field .degree-range-input { height:4px; margin:0; accent-color:var(--accent); }
+.app.modern-layout.experimental-modern-controls .modern-transform-field .degree-range-labels { display:flex; justify-content:space-between; margin-top:3px; color:var(--muted); font-size:8px; }
+.app.modern-layout.experimental-modern-controls .modern-transform-field.transform-rotation .modern-transform-field-head { margin-bottom:2px; }
+body.dark-theme .app.modern-layout.experimental-modern-controls .modern-scrub-value { border:0; border-bottom:1px solid #777; background:transparent; }
+body.dark-theme .app.modern-layout.experimental-modern-controls .modern-scrub-value::after { background:var(--accent); }
+
+/* Lapis keyframes use neutral panel tones rather than the blue accent. */
+body.dark-theme.theme-lapis .app .key-marker.transform-key-marker { background:#343434 !important; border-color:#777 !important; }
+body.dark-theme.theme-lapis .app .key-marker.color-key-marker { background:#55504b !important; border-color:#a39b8e !important; }
+body.dark-theme.theme-lapis .app .effect-key-marker { background:#777064 !important; border-color:#c0b8a8 !important; color:#111 !important; }
+.app.modern-layout.experimental-modern-controls .modern-transform-field.transform-rotation .degree-range { position:relative; padding:7px 3px 0; }
+.app.modern-layout.experimental-modern-controls .modern-transform-field.transform-rotation .degree-range::before { content:""; position:absolute; left:3px; right:3px; top:5px; height:8px; pointer-events:none; background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--ink) 42%,transparent) 0 1px,transparent 1px 9px); opacity:.65; }
+.app.modern-layout.experimental-modern-controls .modern-transform-field.transform-rotation .degree-range::after { content:""; position:absolute; left:50%; top:3px; width:1px; height:12px; background:var(--accent); pointer-events:none; }
+.app.modern-layout.experimental-modern-controls .modern-transform-field.transform-rotation .degree-range-input { position:relative; z-index:1; background:transparent; }
+.app.modern-layout.experimental-modern-controls .attached-effect-editor { margin:5px 0; }
+.app.modern-layout.experimental-modern-controls .attached-effect-editor .control-row { padding:7px 0; }
+.app.modern-layout.experimental-modern-controls .attached-effect-editor .effect-control-heading { padding:8px 10px; }
+
+/* VHS is drawn as a lightweight viewer overlay, independent of SVG filter support. */
+.stage.vhs-active::after { content:""; position:absolute; z-index:2; inset:0; pointer-events:none; opacity:calc(var(--vhs-strength,0) * .48); background:repeating-linear-gradient(to bottom,transparent 0 2px,rgba(0,0,0,.62) 3px,transparent 4px),linear-gradient(90deg,rgba(0,255,220,.10),transparent 18%,transparent 82%,rgba(255,40,90,.10)); mix-blend-mode:overlay; }
