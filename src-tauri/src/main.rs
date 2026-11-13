@@ -88,7 +88,7 @@ fn inspect_media(app: &tauri::AppHandle, path: PathBuf) -> Result<MediaInfo, Str
             thumbnail: make_thumbnail_data(app, &path).ok().flatten(),
         });
     }
-    let probe = Command::new(multimedia_tool(app, "ffprobe"))
+    let probe = multimedia_command(app, "ffprobe")
         .args([
             "-v",
             "error",
@@ -154,6 +154,16 @@ fn multimedia_tool(app: &tauri::AppHandle, tool: &str) -> PathBuf {
     PathBuf::from(filename)
 }
 
+fn multimedia_command(app: &tauri::AppHandle, tool: &str) -> Command {
+    let mut command = Command::new(multimedia_tool(app, tool));
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
+    command
+}
+
 fn encode_base64(bytes: &[u8]) -> String {
     const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut output = String::with_capacity(bytes.len().div_ceil(3) * 4);
@@ -171,7 +181,7 @@ fn encode_base64(bytes: &[u8]) -> String {
 
 fn make_thumbnail_data(app: &tauri::AppHandle, path: &PathBuf) -> Result<Option<String>, String> {
     let extension = path.extension().and_then(|value| value.to_str()).unwrap_or_default().to_ascii_lowercase();
-    let mut command = Command::new(multimedia_tool(app, "ffmpeg"));
+    let mut command = multimedia_command(app, "ffmpeg");
     command.args(["-hide_banner", "-loglevel", "error"]);
     if !["png", "jpg", "jpeg", "gif", "bmp", "webp"].contains(&extension.as_str()) {
         command.args(["-ss", "0.1"]);
@@ -481,7 +491,7 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         }
     }
 
-    let mut command = Command::new(multimedia_tool(&app, "ffmpeg"));
+    let mut command = multimedia_command(&app, "ffmpeg");
     command.arg("-y");
     let mut audio_indices: Vec<(usize, f64, f64, f64, f64, f64)> = Vec::new();
     for (index, clip) in visual.iter().enumerate() {

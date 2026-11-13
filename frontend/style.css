@@ -648,7 +648,6 @@ body.dark-theme .app.modern-layout .toolrail .tool.active { background:#493849; 
 .modern-crop-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; padding:10px; }
 .modern-crop-field { display:flex; align-items:center; gap:5px; color:#c4bec5; font-size:10px; }
 .modern-crop-field span:first-child { flex:1; }
-.modern-crop-field input { width:48px; padding:4px; border:1px solid #393939; border-radius:5px; background:#282828; color:#f0edf0; font-size:10px; text-align:right; }
 .modern-crop-reset { margin:0 10px 10px; padding:6px 8px; border:1px solid #393939; border-radius:6px; background:#252525; color:#d5cbd5; font-size:10px; cursor:pointer; }
 .modern-crop-reset:hover { border-color:#74556d; color:#f1d3e7; }
 .modern-color-card { padding:11px; }
@@ -700,7 +699,6 @@ body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-cr
 body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-reset-all:hover,
 body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-reset-control:hover,
 body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-crop-reset:hover { border-color:#d49bc3; background:#f8eaf5; color:#704d67; }
-body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-crop-field input { border-color:var(--line); background:#fff; color:var(--ink); }
 body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .control-row { border-color:var(--line); }
 body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .control-head label,
 body:not(.dark-theme) .app.modern-layout.experimental-modern-controls .modern-color-card .control-value,
@@ -1075,3 +1073,33 @@ body.dark-theme.theme-lapis .timecode,body.dark-theme.theme-grass .timecode,
 body.dark-theme.theme-lapis .timecode i,body.dark-theme.theme-grass .timecode i,
 body.dark-theme.theme-lapis .ticks,body.dark-theme.theme-grass .ticks,
 body.dark-theme.theme-lapis .ticks span,body.dark-theme.theme-grass .ticks span { color:#fff !important; }
+
+/* Keep keyframe UI legible and tied to the active theme accent. */
+body .app .clip { overflow:visible; }
+body .app .clip .filmstrip { overflow:hidden; border-radius:inherit; }
+body .app .keyframes { z-index:10; }
+body .app .key-marker,
+body .app .effect-key-marker { width:20px; height:20px; z-index:11; border:2px solid var(--panel); color:#fff; filter:drop-shadow(0 1px 2px #0008); }
+body .app .key-marker.transform-key-marker { background:var(--accent) !important; border-color:var(--panel) !important; }
+body .app .key-marker.color-key-marker { background:color-mix(in srgb,var(--accent) 52%,#dc5262) !important; border-color:var(--panel) !important; }
+body .app .effect-key-marker { background:color-mix(in srgb,var(--accent) 25%,#e7c84b) !important; border-color:var(--panel) !important; color:#302b20; }
+body .app .key-marker > span,
+body .app .effect-key-marker > span { display:flex; width:100%; height:100%; align-items:center; justify-content:center; transform:rotate(-45deg); font-size:9px; font-weight:900; line-height:1; }
+body .app .key-marker:hover,
+body .app .effect-key-marker:hover { width:22px; height:22px; filter:drop-shadow(0 1px 3px #000b) brightness(1.12); }
+body .app .keyframe-controls button,
+body .app .keyframe-add-icon.keyframe-remove { border-color:color-mix(in srgb,var(--accent) 42%,var(--line)) !important; background:color-mix(in srgb,var(--accent) 12%,var(--panel)) !important; color:var(--accent) !important; }
+body .app .keyframe-controls button:hover,
+body .app .keyframe-add-icon.keyframe-remove:hover { border-color:var(--accent) !important; background:color-mix(in srgb,var(--accent) 22%,var(--panel)) !important; }
+
+/* Crop values use the same horizontal scrub and edit interaction as modern transforms. */
+.modern-crop-field { min-width:0; gap:7px; }
+.modern-crop-field > span:first-child { flex:1; }
+.modern-crop-scrub { flex:none; width:62px; min-width:62px; padding:4px 6px; }
+.modern-scrub-editor { display:block; width:100%; min-width:0; height:100%; padding:0; border:0; outline:0; background:transparent; color:inherit; font:inherit; font-variant-numeric:tabular-nums; text-align:right; }
+.modern-scrub-editor:focus { box-shadow:none; }
+.app.modern-layout.experimental-modern-controls .modern-crop-tools { border-color:var(--line); background:var(--panel); color:var(--ink); }
+.app.modern-layout.experimental-modern-controls .modern-crop-tools summary { color:var(--ink); }
+.app.modern-layout.experimental-modern-controls .modern-crop-field { color:var(--ink); }
+.app.modern-layout.experimental-modern-controls .modern-scrub-value.modern-crop-scrub { border-color:var(--line); background:color-mix(in srgb,var(--panel) 94%,var(--accent) 6%); color:var(--ink); }
+.app.modern-layout.experimental-modern-controls .modern-scrub-editor { color:var(--ink); }
