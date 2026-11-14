@@ -1142,32 +1142,3 @@ body.dark-theme.theme-lapis .app .effect-key-marker { background:#777064 !import
 
 /* VHS is drawn as a lightweight viewer overlay, independent of SVG filter support. */
 .stage.vhs-active::after { content:""; position:absolute; z-index:2; inset:0; pointer-events:none; opacity:calc(var(--vhs-strength,0) * .48); background:repeating-linear-gradient(to bottom,transparent 0 2px,rgba(0,0,0,.62) 3px,transparent 4px),linear-gradient(90deg,rgba(0,255,220,.10),transparent 18%,transparent 82%,rgba(255,40,90,.10)); mix-blend-mode:overlay; }
-
-/* Modern inspector refinement: tighter cards, anchored scrub feedback, and a direct rotation ruler. */
-.app.modern-layout.experimental-modern-controls .modern-transform-card { margin:5px 0; padding:8px; border-radius:8px; }
-.app.modern-layout.experimental-modern-controls .modern-transform-heading { margin-bottom:6px; font-size:12px; }
-.app.modern-layout.experimental-modern-controls .modern-transform-grid { gap:5px; }
-.app.modern-layout.experimental-modern-controls .modern-transform-field { padding:5px 6px; border-radius:7px; }
-.app.modern-layout.experimental-modern-controls .modern-transform-field-head { gap:4px; margin-bottom:3px; }
-.app.modern-layout.experimental-modern-controls .modern-transform-field-head label { font-size:9px; }
-.app.modern-layout.experimental-modern-controls .modern-transform-number { gap:3px; }
-.app.modern-layout.experimental-modern-controls .modern-transform-number .modern-scrub-value { min-width:43px; padding:2px 2px 4px; font-size:9px; }
-.app.modern-layout.experimental-modern-controls .modern-reset-control,
-.app.modern-layout.experimental-modern-controls .modern-reset-all { width:20px; height:20px; border-radius:5px; font-size:12px; }
-.app.modern-layout.experimental-modern-controls .modern-transform-field.transform-rotation .modern-transform-field-head { margin-bottom:0; }
-.app.modern-layout.experimental-modern-controls .modern-rotation-readout { min-width:35px; color:var(--ink); font-size:9px; font-variant-numeric:tabular-nums; text-align:right; }
-.app.modern-layout.experimental-modern-controls .modern-transform-field.transform-rotation .degree-range { padding:5px 2px 0; }
-.app.modern-layout.experimental-modern-controls .modern-transform-field.transform-rotation .degree-range::before { top:4px; height:7px; }
-.app.modern-layout.experimental-modern-controls .modern-transform-field.transform-rotation .degree-range::after { top:2px; height:11px; }
-.app.modern-layout.experimental-modern-controls .modern-transform-field.transform-rotation .degree-range-input { display:block; width:100%; height:15px; margin:0; cursor:ew-resize; }
-.app.modern-layout.experimental-modern-controls .modern-transform-field.transform-rotation .degree-range-labels { margin-top:1px; font-size:7px; }
-.app.modern-layout.experimental-modern-controls .modern-scrub-value::after { left:0; right:auto; bottom:-1px; width:var(--scrub-progress,0%); transform:none; transform-origin:left center; }
-.app.modern-layout.experimental-modern-controls .modern-scrub-value.scrubbing::after { transform:none; }
-.app.modern-layout.experimental-modern-controls .modern-crop-tools { margin:5px 0 1px; border-radius:8px; }
-.app.modern-layout.experimental-modern-controls .modern-crop-tools summary { display:flex; align-items:center; justify-content:space-between; min-height:30px; padding:5px 8px; font-size:11px; }
-.app.modern-layout.experimental-modern-controls .modern-crop-tools[open] summary { border-bottom:1px solid var(--line); }
-.app.modern-layout.experimental-modern-controls .modern-crop-grid { gap:4px 9px; padding:7px 8px; }
-.app.modern-layout.experimental-modern-controls .modern-crop-field { gap:5px; font-size:9px; }
-.app.modern-layout.experimental-modern-controls .modern-crop-scrub { width:52px; min-width:52px; padding:2px 2px 4px; font-size:9px; }
-.app.modern-layout.experimental-modern-controls .modern-crop-reset-icon { display:grid; place-items:center; width:19px; height:19px; margin-left:auto; padding:0; border:1px solid var(--line); border-radius:5px; background:transparent; color:var(--muted); font-size:13px; line-height:1; cursor:pointer; }
-.app.modern-layout.experimental-modern-controls .modern-crop-reset-icon:hover { border-color:var(--accent); color:var(--ink); background:color-mix(in srgb,var(--accent) 10%,transparent); }
