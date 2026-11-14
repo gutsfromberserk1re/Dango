@@ -1243,7 +1243,7 @@ body.dark-theme.theme-lapis .app .effect-key-marker { background:#777064 !import
     transparent calc(var(--scrub-origin, 0%) - .5px),
     color-mix(in srgb, var(--ink) 48%, transparent) var(--scrub-origin, 0%),
     transparent calc(var(--scrub-origin, 0%) + .5px));
-  transition: opacity .10s ease;
+  transition: opacity .16s ease;
 }
 .app.modern-layout.experimental-modern-controls .modern-value-indicator::after {
   position: absolute;
@@ -1510,7 +1510,7 @@ body.dark-theme.theme-lapis .app .effect-key-marker { background: #d6bd63 !impor
   font-size: 16px;
   font-weight: 500;
   border-radius: 5px;
-  transition: color .12s ease, background-color .12s ease, box-shadow .12s ease, transform .12s ease;
+  transition: color .18s ease, background-color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
 .app.modern-layout.experimental-modern-controls .modern-keyframe-controls .keyframe-add.is-keyframed,
 .app.modern-layout.experimental-modern-controls .modern-keyframe-controls .keyframe-add.keyframe-remove {
@@ -1562,8 +1562,8 @@ body.dark-theme.theme-grass .app .key-marker.crop-key-marker {
 .app.modern-layout.experimental-modern-controls .modern-keyframe-controls,
 .app.modern-layout.experimental-modern-controls .modern-keyframe-controls .keyframe-add,
 .app.modern-layout.experimental-modern-controls .key-marker {
-  transition-property: background-color, border-color, color, box-shadow, opacity, transform;
-  transition-duration: .12s;
+  transition-property: background-color, border-color, color, box-shadow, opacity, transform, left, width;
+  transition-duration: .18s;
   transition-timing-function: cubic-bezier(.2,.7,.25,1);
 }
 .app.modern-layout.experimental-modern-controls .modern-transform-field:hover,
@@ -1576,8 +1576,7 @@ body.dark-theme.theme-grass .app .key-marker.crop-key-marker {
   transform: translateY(-1px);
 }
 .app.modern-layout.experimental-modern-controls .modern-value-indicator::after {
-  /* Keep value feedback locked to the pointer; animate color only, never lag the bar. */
-  transition: background-color .12s ease;
+  transition: left .08s ease-out, width .08s ease-out, background-color .18s ease;
 }
 .app.modern-layout.experimental-modern-controls .modern-keyframe-controls .keyframe-add:hover:not(:disabled) {
   transform: translateY(-1px);
@@ -1610,252 +1609,3 @@ body.dark-theme.theme-grass .app .key-marker.crop-key-marker {
   color: color-mix(in srgb, var(--ink) 65%, var(--muted));
   font-weight: 450;
 }
-
-/* Neo control scheme: iOS-inspired grouped inspector, while keeping Modern and Legacy intact. */
-.app.neo-layout .inspector {
-  border-radius: 15px;
-  overflow: hidden;
-  box-shadow: 0 10px 28px rgba(0,0,0,.14);
-}
-.app.neo-layout .inspector-body {
-  padding: 13px 11px;
-  background: color-mix(in srgb, var(--panel) 96%, var(--ink) 4%);
-  scrollbar-color: color-mix(in srgb, var(--muted) 48%, transparent) transparent;
-}
-.app.neo-layout .inspector-body .section-title {
-  margin: 1px 2px 5px;
-  color: color-mix(in srgb, var(--ink) 82%, var(--muted));
-  font-size: 13px;
-  font-weight: 570;
-  letter-spacing: -.01em;
-}
-.app.neo-layout .inspector-body .selected-name {
-  margin: 0 2px 12px;
-  color: color-mix(in srgb, var(--muted) 88%, var(--ink));
-  font-size: 10px;
-  font-weight: 430;
-}
-.app.neo-layout .inspector .tabs {
-  padding: 10px 5px;
-  gap: 8px;
-  border-left: 1px solid var(--line);
-  background: color-mix(in srgb, var(--panel) 94%, var(--ink) 6%);
-}
-.app.neo-layout .inspector .tab {
-  width: 37px;
-  height: 38px;
-  border: 1px solid transparent;
-  border-radius: 11px;
-  background: transparent !important;
-  color: var(--muted);
-  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
-}
-.app.neo-layout .inspector .tab:hover {
-  background: color-mix(in srgb, var(--accent) 8%, var(--panel)) !important;
-  border-color: color-mix(in srgb, var(--accent) 14%, var(--line));
-  transform: translateY(-1px);
-}
-.app.neo-layout .inspector .tab.active {
-  background: color-mix(in srgb, var(--accent) 13%, var(--panel)) !important;
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
-  color: var(--ink);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 2px 7px rgba(0,0,0,.06) !important;
-}
-.app.neo-layout .inspector .tab.active::after {
-  top: 8px;
-  right: auto;
-  bottom: 8px;
-  left: -6px;
-  width: 2px;
-  height: auto;
-  border-radius: 3px;
-  background: var(--accent) !important;
-}
-.app.neo-layout .modern-transform-card,
-.app.neo-layout .modern-control-card,
-.app.neo-layout .modern-crop-tools,
-.app.neo-layout .color-accordion,
-.app.neo-layout .effect-category,
-.app.neo-layout .attached-effect-editor {
-  margin: 8px 0;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, var(--ink) 18%);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--panel) 94%, var(--ink) 6%);
-  box-shadow: 0 2px 8px rgba(0,0,0,.055);
-  overflow: hidden;
-}
-.app.neo-layout .modern-transform-card { padding: 11px; }
-.app.neo-layout .modern-transform-heading {
-  margin: 0 0 10px;
-  color: color-mix(in srgb, var(--ink) 84%, var(--muted));
-  font-size: 12px;
-  font-weight: 560;
-}
-.app.neo-layout .modern-transform-heading strong { font-weight: 560; }
-.app.neo-layout .modern-transform-grid { gap: 7px; }
-.app.neo-layout .modern-transform-inner { gap: 7px; }
-.app.neo-layout .modern-transform-field,
-.app.neo-layout .modern-transform-field.transform-rotation {
-  height: 60px;
-  min-height: 60px;
-  padding: 8px 9px;
-  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--ink) 12%);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--panel) 92%, var(--ink) 8%);
-}
-.app.neo-layout .modern-transform-field.transform-size { grid-column: auto; }
-.app.neo-layout .modern-transform-field.transform-rotation { height: 66px; min-height: 66px; }
-.app.neo-layout .modern-transform-field-head { min-height: 23px; gap: 7px; }
-.app.neo-layout .modern-transform-field-head label {
-  color: color-mix(in srgb, var(--ink) 70%, var(--muted));
-  font-size: 10px;
-  font-weight: 460;
-}
-.app.neo-layout .modern-transform-number .modern-scrub-value {
-  min-width: 47px;
-  font-size: 11px;
-  font-weight: 540;
-}
-.app.neo-layout .modern-reset-control,
-.app.neo-layout .modern-reset-all,
-.app.neo-layout .modern-crop-reset-icon {
-  width: 23px;
-  height: 23px;
-  border-radius: 8px;
-  border-color: color-mix(in srgb, var(--line) 78%, var(--ink) 22%);
-  background: color-mix(in srgb, var(--panel) 88%, var(--ink) 12%);
-  color: color-mix(in srgb, var(--ink) 70%, var(--muted));
-}
-.app.neo-layout .modern-rotation-ruler { height: 32px; margin-top: 3px; }
-.app.neo-layout .modern-rotation-track { top: 7px; }
-.app.neo-layout .modern-rotation-thumb {
-  width: 3px;
-  height: 16px;
-  top: -4px;
-  border-radius: 3px;
-  background: #e5484d;
-  box-shadow: 0 0 0 1px rgba(229,72,77,.15), 0 0 5px rgba(229,72,77,.2);
-}
-.app.neo-layout .modern-crop-tools { margin: 9px 0; }
-.app.neo-layout .modern-crop-tools > summary,
-.app.neo-layout .color-accordion > summary,
-.app.neo-layout .effect-category > summary,
-.app.neo-layout .attached-effect-editor > summary {
-  min-height: 39px;
-  padding: 11px 12px;
-  color: color-mix(in srgb, var(--ink) 82%, var(--muted));
-  font-size: 11px;
-  font-weight: 550;
-}
-.app.neo-layout .modern-crop-tools[open] > summary,
-.app.neo-layout .color-accordion[open] > summary,
-.app.neo-layout .effect-category[open] > summary,
-.app.neo-layout .attached-effect-editor[open] > summary {
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 88%, var(--ink) 12%);
-}
-.app.neo-layout .modern-crop-grid { gap: 8px; padding: 11px; }
-.app.neo-layout .modern-crop-field {
-  min-height: 43px;
-  padding: 7px 8px;
-  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--ink) 12%);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--panel) 92%, var(--ink) 8%);
-}
-.app.neo-layout .keyframe-controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 7px;
-  margin: 9px 0 11px;
-}
-.app.neo-layout .keyframe-controls .keyframe-add {
-  min-height: 34px;
-  margin: 0;
-  border: 1px solid color-mix(in srgb, var(--line) 82%, var(--ink) 18%);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--panel) 90%, var(--ink) 10%);
-  color: color-mix(in srgb, var(--ink) 72%, var(--muted));
-  box-shadow: none;
-  font-size: 12px;
-}
-.app.neo-layout .keyframe-controls .keyframe-add:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
-  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
-}
-.app.neo-layout .keyframe-controls .keyframe-add.active,
-.app.neo-layout .keyframe-controls .keyframe-add[aria-pressed="true"] {
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
-  background: color-mix(in srgb, var(--accent) 17%, var(--panel));
-  color: var(--ink);
-}
-.app.neo-layout .modern-color-card .control-row,
-.app.neo-layout .color-accordion-inner .control-row {
-  padding: 9px 2px 10px;
-  border-color: color-mix(in srgb, var(--line) 86%, var(--ink) 14%);
-}
-.app.neo-layout .modern-color-card .control-head label,
-.app.neo-layout .color-accordion-inner .control-head label { font-weight: 450; }
-.app.neo-layout .effect-card,
-.app.neo-layout .media-item,
-.app.neo-layout .media-search,
-.app.neo-layout .import-button,
-.app.neo-layout .media-view-toggle button {
-  border-radius: 11px;
-}
-.app.neo-layout .effect-card {
-  margin: 6px 0;
-  padding: 10px;
-  border-color: color-mix(in srgb, var(--line) 85%, var(--ink) 15%);
-  background: color-mix(in srgb, var(--panel) 94%, var(--ink) 6%);
-}
-.app.neo-layout .effect-card strong { font-size: 10px; font-weight: 550; }
-.app.neo-layout .effect-card small { font-size: 9px; }
-.app.neo-layout .media-item { margin: 3px 0; padding: 9px 8px; }
-.app.neo-layout .media-item:hover { background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
-.app.neo-layout .media-item strong { font-size: 10px; font-weight: 550; }
-.app.neo-layout .media-item small { font-size: 9px; }
-.app.neo-layout .media-search {
-  border-color: color-mix(in srgb, var(--line) 84%, var(--ink) 16%);
-  background: color-mix(in srgb, var(--panel) 92%, var(--ink) 8%);
-  color: var(--ink);
-}
-.app.neo-layout .import-button {
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line));
-  background: color-mix(in srgb, var(--accent) 13%, var(--panel));
-  color: var(--ink);
-}
-.app.neo-layout .modern-transform-card,
-.app.neo-layout .modern-control-card,
-.app.neo-layout .modern-crop-tools,
-.app.neo-layout .color-accordion,
-.app.neo-layout .effect-category,
-.app.neo-layout .attached-effect-editor,
-.app.neo-layout .effect-card,
-.app.neo-layout .media-item,
-.app.neo-layout .keyframe-add,
-.app.neo-layout .modern-transform-field,
-.app.neo-layout .modern-crop-field,
-.app.neo-layout .tab { transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease, transform .2s ease; }
-.app.neo-layout .inspector-body .modern-transform-card[open],
-.app.neo-layout .inspector-body .modern-crop-tools[open] { animation: neo-card-in .2s cubic-bezier(.2,.7,.25,1) both; }
-@keyframes neo-card-in { from { opacity:.88; transform:translateY(3px); } to { opacity:1; transform:translateY(0); } }
-@media (prefers-reduced-motion: reduce) {
-  .app.neo-layout *, .app.neo-layout *::before, .app.neo-layout *::after { animation-duration:.01ms!important; transition-duration:.01ms!important; }
-}
-
-/* Keep the project preview canvas, text boxes and transform handles inside the chosen sequence ratio. */
-.stage { background:#090909; }
-#previewCanvas {
-  object-fit:fill;
-  background:#090909;
-  box-shadow:0 0 0 1px rgba(255,255,255,.16), 0 6px 22px rgba(0,0,0,.2);
-}
-#titlePreview { inset:auto; }
-.stage.vhs-active::after {
-  inset: auto;
-  left: var(--preview-frame-left, 0px);
-  top: var(--preview-frame-top, 0px);
-  width: var(--preview-frame-width, 100%);
-  height: var(--preview-frame-height, 100%);
-  border-radius: 2px;
-}
-.setting-theme[hidden], .experimental-note[hidden] { display:none !important; }
