@@ -483,7 +483,7 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
     let project_height = project["projectHeight"].as_f64().unwrap_or(9.0).max(1.0);
     let aspect = (project_width / project_height).clamp(0.25, 4.0);
     let raw_width = (height as f64 * aspect).round() as i32;
-    let width = (raw_width.max(2) + raw_width.max(2) % 2);
+    let width = raw_width.max(2) + raw_width.max(2) % 2;
     let mut visual: Vec<&Value> = clips.iter().filter(|clip| {
         matches!(clip["kind"].as_str(), Some("video" | "image"))
             && clip["titleText"].is_null()
@@ -605,7 +605,18 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         let clip_duration = clip["duration"].as_f64().unwrap_or(1.0).max(0.05);
         let end = start + clip_duration;
         let scale = control_expression(clip, "size", 100.0, "t", 0.0);
-        let opacity = control_expression(clip, "opacity", 100.0, "T", 0.0);
+        let opacity_expression = control_expression(clip, "opacity", 100.0, "T", 0.0);
+        let opacity_is_animated = clip["keys"].as_array().map(|keys| {
+            keys.iter().any(|key| key["controls"]["opacity"].is_number())
+        }).unwrap_or(false);
+        // Use the fast constant alpha mixer for ordinary clips. Keep the expression-based
+        // path only when opacity has keyframes so animated opacity still follows the timeline.
+        let opacity_filter = if opacity_is_animated {
+            format!("geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='alpha(X,Y)*({opacity_expression})/100")
+        } else {
+            let opacity_value = clip["controls"]["opacity"].as_f64().unwrap_or(100.0);
+            format!("colorchannelmixer=aa={:.6}", (opacity_value / 100.0).clamp(0.0, 1.0))
+        };
         let x = control_expression(clip, "positionX", 0.0, "t", start);
         let y = control_expression(clip, "positionY", 0.0, "t", start);
         let rotation = control_expression(clip, "rotation", 0.0, "t", 0.0);
@@ -639,9 +650,9 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         let effect_graph = render_filtergraph(&effect_steps, &effect_input, &effect_output, &format!("fx{index}"));
         let next = format!("base{}", index + 1);
         if transition_sources[index] {
-            graph.push_str(&format!(";[{index}:v]setpts=PTS-STARTPTS,{}[{effect_input}];{effect_graph};[{effect_output}]format=rgba,colorchannelmixer=aa={:.6},setsar=1,setpts=PTS-STARTPTS,split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]crop=w='min(iw,{width})':h='min(ih,{height})',pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p,fps=30,settb=expr=1/30[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(","), (opacity / 100.0).clamp(0.0, 1.0)));
+            graph.push_str(&format!(";[{index}:v]setpts=PTS-STARTPTS,{}[{effect_input}];{effect_graph};[{effect_output}]format=rgba,{opacity_filter},setsar=1,setpts=PTS-STARTPTS,split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]crop=w='min(iw,{width})':h='min(ih,{height})',pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p,fps=30,settb=expr=1/30[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(",")));
         } else {
-            graph.push_str(&format!(";[{index}:v]setpts=PTS-STARTPTS,{}[{effect_input}];{effect_graph};[{effect_output}]format=rgba,colorchannelmixer=aa={:.6},setsar=1,setpts=PTS-STARTPTS+{start:.4}/TB[v{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(","), (opacity / 100.0).clamp(0.0, 1.0)));
+            graph.push_str(&format!(";[{index}:v]setpts=PTS-STARTPTS,{}[{effect_input}];{effect_graph};[{effect_output}]format=rgba,{opacity_filter},setsar=1,setpts=PTS-STARTPTS+{start:.4}/TB[v{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(",")));
         }
         last = next;
     }
