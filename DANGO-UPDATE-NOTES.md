@@ -26,11 +26,3 @@ Base source: `gutsfromberserk1re/Dango` commit `e13d08b99768105cd7ea724dcac4986c
 - A full Tauri/Rust build could not be run in this environment because `cargo`, `rustc`, and the local Tauri CLI dependency are unavailable. Native Windows build and interactive app testing remain to be done.
 
 The reported 33-second export was not accompanied by its project file, so its exact timeline was not independently reproduced. The source path that lets synthetic effect descriptors extend export duration has been removed, which addresses that specific black-tail failure mode.
-
-## Follow-up build fix (2026-11-14)
-
-- Fixed the Rust type error in the export compositor: the opacity expression string is no longer divided as though it were a number.
-- Constant opacity now uses `colorchannelmixer` with a numeric alpha gain for the fast path.
-- Clips with opacity keyframes retain the expression-based alpha path so their animation is not lost.
-- Removed an unnecessary-parentheses compiler warning in the output-width calculation.
-- Verified both FFmpeg alpha-filter branches with a local one-frame smoke test. A native `tauri build` was not available in the patching environment because the Rust toolchain is not installed.
