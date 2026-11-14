@@ -5,8 +5,8 @@ use effects::{media_effect_steps, render_filtergraph, RenderCfg};
 
 use serde::Serialize;
 use serde_json::Value;
-use std::{collections::VecDeque, fs, io::{BufRead, BufReader}, path::PathBuf, process::{Command, Stdio}, thread};
-use tauri::{Emitter, Manager};
+use std::{fs, path::PathBuf, process::Command};
+use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
 #[derive(Serialize)]
@@ -24,22 +24,6 @@ struct MediaInfo {
 struct ProjectDocument {
     path: String,
     contents: String,
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct ExportProgress {
-    percent: f64,
-    rendered_seconds: f64,
-    total_seconds: f64,
-}
-
-fn parse_ffmpeg_time(value: &str) -> Option<f64> {
-    let mut parts = value.trim().split(':');
-    let hours = parts.next()?.parse::<f64>().ok()?;
-    let minutes = parts.next()?.parse::<f64>().ok()?;
-    let seconds = parts.next()?.parse::<f64>().ok()?;
-    Some(hours * 3600.0 + minutes * 60.0 + seconds)
 }
 
 #[tauri::command]
@@ -500,11 +484,8 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
     if visual.is_empty() && titles.is_empty() && audio.is_empty() {
         return Err("Add video, an image, audio, or text before exporting".into());
     }
-    // Effect descriptors are synthetic export inputs, not timeline media. Using
-    // their duration here can extend the render long after the owner clip ends,
-    // producing seconds of black video at the tail of otherwise short edits.
-    let duration = clips.iter().filter(|clip| clip["kind"] != "effect").filter_map(|clip| {
-        clip["start"].as_f64().zip(clip["duration"].as_f64()).map(|(start, length)| start.max(0.0) + length.max(0.0))
+    let duration = clips.iter().filter_map(|clip| {
+        clip["start"].as_f64().zip(clip["duration"].as_f64()).map(|(start, length)| start + length)
     }).fold(0.0_f64, f64::max);
     if duration <= 0.0 {
         return Err("The timeline has no duration to export".into());
@@ -568,38 +549,6 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
     let _temp_files = ExportTempFiles(temp_root.clone());
     let mut graph = format!("color=c=black:s={width}x{height}:r=30:d={duration:.4}[base0]");
     let mut last = "base0".to_string();
-    // Only prepare the extra, full-frame transition streams for clips that are
-    // actually part of a valid cross-dissolve. Ordinary clips no longer pay for
-    // a duplicate crop/pad/fps branch that would otherwise be thrown away.
-    let mut transition_sources = vec![false; visual.len()];
-    for effect in clips.iter().filter(|clip| clip["kind"] == "effect" && clip["effectName"] == "Cross dissolve") {
-        let effect_duration = effect["duration"].as_f64().unwrap_or(1.0).clamp(0.1, 10.0);
-        let cut = effect["transitionCut"].as_f64().unwrap_or(effect["start"].as_f64().unwrap_or(0.0) + effect_duration / 2.0);
-        let mut pair = None;
-        let mut pair_rank = 0;
-        for (out_index, outgoing) in visual.iter().enumerate() {
-            for (in_index, incoming) in visual.iter().enumerate() {
-                if out_index == in_index { continue; }
-                let rank = |clip: &Value| clip["track"].as_str().and_then(|track| track.strip_prefix('V')).and_then(|rank| rank.parse::<u32>().ok()).unwrap_or(1);
-                let candidate_rank = rank(outgoing).max(rank(incoming));
-                let out_end = outgoing["start"].as_f64().unwrap_or(0.0) + outgoing["duration"].as_f64().unwrap_or(0.0);
-                let in_start = incoming["start"].as_f64().unwrap_or(0.0);
-                if candidate_rank >= pair_rank && (out_end - cut).abs() <= 1.0 / 30.0 + 0.002 && (in_start - cut).abs() <= 1.0 / 30.0 + 0.002 {
-                    pair = Some((out_index, in_index));
-                    pair_rank = candidate_rank;
-                }
-            }
-        }
-        if let Some((out_index, in_index)) = pair {
-            let half = (effect_duration / 2.0)
-                .min(visual[out_index]["duration"].as_f64().unwrap_or(0.0))
-                .min(visual[in_index]["duration"].as_f64().unwrap_or(0.0));
-            if half >= 0.03 {
-                transition_sources[out_index] = true;
-                transition_sources[in_index] = true;
-            }
-        }
-    }
     for (index, clip) in visual.iter().enumerate() {
         let start = clip["start"].as_f64().unwrap_or(0.0).max(0.0);
         let clip_duration = clip["duration"].as_f64().unwrap_or(1.0).max(0.05);
@@ -638,14 +587,11 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
         let effect_output = format!("fxout{index}");
         let effect_graph = render_filtergraph(&effect_steps, &effect_input, &effect_output, &format!("fx{index}"));
         let next = format!("base{}", index + 1);
-        if transition_sources[index] {
-            graph.push_str(&format!(";[{index}:v]setpts=PTS-STARTPTS,{}[{effect_input}];{effect_graph};[{effect_output}]format=rgba,colorchannelmixer=aa={:.6},setsar=1,setpts=PTS-STARTPTS,split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]crop=w='min(iw,{width})':h='min(ih,{height})',pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p,fps=30,settb=expr=1/30[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(","), (opacity / 100.0).clamp(0.0, 1.0)));
-        } else {
-            graph.push_str(&format!(";[{index}:v]setpts=PTS-STARTPTS,{}[{effect_input}];{effect_graph};[{effect_output}]format=rgba,colorchannelmixer=aa={:.6},setsar=1,setpts=PTS-STARTPTS+{start:.4}/TB[v{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(","), (opacity / 100.0).clamp(0.0, 1.0)));
-        }
+        graph.push_str(&format!(";[{index}:v]setpts=PTS-STARTPTS,{}[{effect_input}];{effect_graph};[{effect_output}]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='alpha(X,Y)*({opacity})/100',setsar=1,setpts=PTS-STARTPTS,split=2[ov{index}][src{index}];[ov{index}]setpts=PTS+{start:.4}/TB[v{index}];[src{index}]crop=w='min(iw,{width})':h='min(ih,{height})',pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,format=yuv420p,fps=30,settb=expr=1/30[tsrc{index}];[{last}][v{index}]overlay=x='(W-w)/2+({x})*W/100':y='(H-h)/2+({y})*H/100':eof_action=pass:enable='between(t,{start:.4},{end:.4})'[{next}]", filters.join(",")));
         last = next;
     }
 
+    let mut transition_sources = vec![false; visual.len()];
     for (effect_index, effect) in clips.iter().filter(|clip| clip["kind"] == "effect" && clip["effectName"] == "Cross dissolve").enumerate() {
         let effect_duration = effect["duration"].as_f64().unwrap_or(1.0).clamp(0.1, 10.0);
         let cut = effect["transitionCut"].as_f64().unwrap_or(effect["start"].as_f64().unwrap_or(0.0) + effect_duration / 2.0);
@@ -685,6 +631,10 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
             last = next;
         }
     }
+    for (index, used) in transition_sources.iter().enumerate() {
+        if !used { graph.push_str(&format!(";[tsrc{index}]nullsink")); }
+    }
+
     for (index, title) in titles.iter().enumerate() {
         let text = title["titleText"].as_str().unwrap_or("");
         let text_path = temp_root.join(format!("title-{index}.txt"));
@@ -737,50 +687,15 @@ fn render_export(app: tauri::AppHandle, contents: String, quality: String, outpu
     }
     command.arg("-filter_complex").arg(&graph).args(["-map", "[vout]"]);
     if !audio_labels.is_empty() { command.args(["-map", "[aout]"]); } else { command.arg("-an"); }
-    // CRF controls quality; a faster preset avoids spending excessive time on
-    // short previews/exports while keeping the selected quality target intact.
-    let (preset, crf) = match quality_level { "low" => ("veryfast", "28"), "high" => ("fast", "18"), _ => ("veryfast", "23") };
+    let (preset, crf) = match quality_level { "low" => ("fast", "28"), "high" => ("slow", "18"), _ => ("medium", "23") };
     command.args(["-c:v", "libx264", "-preset", preset, "-crf", crf, "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-r", "30"]);
     if !audio_labels.is_empty() { command.args(["-c:a", "aac", "-b:a", "192k"]); }
-    command.args(["-progress", "pipe:1", "-nostats"]);
-    let mut child = command.arg("-t").arg(format!("{duration:.4}")).arg(&output)
-        .stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
+    let result = command.arg("-t").arg(format!("{duration:.4}")).arg(&output).output()
         .map_err(|error| format!("FFmpeg could not start: {error}. Put ffmpeg.exe beside Dango or add FFmpeg to PATH."))?;
-    let stdout = child.stdout.take().ok_or("Could not read FFmpeg progress")?;
-    let stderr = child.stderr.take().ok_or("Could not read FFmpeg diagnostics")?;
-    let stderr_thread = thread::spawn(move || {
-        let reader = BufReader::new(stderr);
-        let mut tail = VecDeque::with_capacity(40);
-        for line in reader.lines().flatten() {
-            if tail.len() == 40 { tail.pop_front(); }
-            tail.push_back(line);
-        }
-        tail.into_iter().collect::<Vec<_>>().join("\n")
-    });
-    let _ = app.emit("export-progress", ExportProgress { percent: 0.0, rendered_seconds: 0.0, total_seconds: duration });
-    let reader = BufReader::new(stdout);
-    let mut rendered_seconds = 0.0_f64;
-    let mut last_percent = -1_i32;
-    for line in reader.lines().flatten() {
-        if let Some(value) = line.strip_prefix("out_time_us=").or_else(|| line.strip_prefix("out_time_ms=")) {
-            if let Ok(micros) = value.parse::<f64>() { rendered_seconds = (micros / 1_000_000.0).clamp(0.0, duration); }
-        } else if let Some(value) = line.strip_prefix("out_time=") {
-            if let Some(seconds) = parse_ffmpeg_time(value) { rendered_seconds = seconds.clamp(0.0, duration); }
-        } else if line == "progress=continue" || line == "progress=end" {
-            let percent = if line == "progress=end" { 100 } else { ((rendered_seconds / duration) * 100.0).floor().clamp(0.0, 99.0) as i32 };
-            if percent != last_percent {
-                last_percent = percent;
-                let _ = app.emit("export-progress", ExportProgress { percent: percent as f64, rendered_seconds, total_seconds: duration });
-            }
-        }
-    }
-    let status = child.wait().map_err(|error| format!("Could not finish FFmpeg export: {error}"))?;
-    let diagnostics = stderr_thread.join().unwrap_or_else(|_| String::from("FFmpeg diagnostics were unavailable"));
-    if !status.success() {
+    if !result.status.success() {
         let _ = fs::remove_file(&output);
-        return Err(if diagnostics.trim().is_empty() { format!("FFmpeg exited with status {status}") } else { diagnostics });
+        return Err(String::from_utf8_lossy(&result.stderr).lines().rev().take(10).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n"));
     }
-    let _ = app.emit("export-progress", ExportProgress { percent: 100.0, rendered_seconds: duration, total_seconds: duration });
     Ok(output.to_string_lossy().into_owned())
 }
 
